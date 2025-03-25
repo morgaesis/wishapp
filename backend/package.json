@@ -1,0 +1,14 @@
+{
+  "name": "wishapp-backend",
+  "version": "1.0.0",
+  "description": "Backend for WishApp",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "ts-node": "^10.0.0"
+  }
+}
