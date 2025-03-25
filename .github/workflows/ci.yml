@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 23
+
+    - name: Install dependencies
+      run: |
+        cd frontend && npm install
+        cd ../backend && npm install
+
+    - name: Run ESLint
+      run: |
+        cd frontend && npx eslint .
+        cd ../backend && npx eslint .
+
+    - name: Run Prettier
+      run: |
+        cd frontend && npx prettier --check .
+        cd ../backend && npx prettier --check .
+
+  auto-merge:
+    runs-on: ubuntu-latest
+    needs: lint
+    if: ${{ github.event.pull_request.merged == false }}
+
+    steps:
+    - name: Auto-merge PR
+      uses: pascalgn/automerge-action@v0.14.3
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        mergeMethod: squash
+        commitMessage: "Auto-merged by CI"
+        authorEmail: "openhands@all-hands.dev"
+        authorName: "OpenHands"
