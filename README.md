@@ -1,6 +1,6 @@
 # WishApp
 
-WishApp is a web application that allows users to create and manage wishlists. The application is built with a TypeScript frontend and backend, running on Node.js 23. The infrastructure is designed to be cloud-native, utilizing AWS services within the free tier. CI/CD is managed using GitHub Actions.
+WishApp is a web application that allows users to create and manage wishlists. The application is built with Rust, consolidating both frontend and backend components into a single project. The infrastructure is designed to be cloud-native, utilizing AWS services within the free tier. CI/CD is managed using GitHub Actions.
 
 ## Project Structure
 - **Frontend**: Contains the user interface components and logic.
