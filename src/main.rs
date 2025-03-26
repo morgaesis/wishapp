@@ -1,3 +1,7 @@
+mod backend;
+mod frontend;
+
 fn main() {
-    println!("Hello, world!");
+    backend::start_backend();
+    frontend::start_frontend();
 }
