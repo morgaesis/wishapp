@@ -7,8 +7,7 @@ WishApp is a web application that allows users to create and manage wishlists. T
 - **Backend**: Handles API requests and business logic.
 
 ## Technologies Used
-- **TypeScript**: For both frontend and backend development.
-- **Node.js 23**: Runtime environment for executing JavaScript code.
+- **Rust**: For both frontend and backend development.
 - **AWS**: Cloud services for hosting and infrastructure.
 - **GitHub Actions**: For continuous integration and deployment.
 
