@@ -18,7 +18,7 @@ WishApp is a web application that allows users to create and manage wishlists. T
 4. Set up GitHub Actions for CI/CD.
 
 ## Development
-- **Frontend**: Located in the `frontend` directory.
+- **Frontend**: Located in the `src/frontend` directory. To run the frontend, use the command `cargo leptos serve --features frontend -- --port 50080 --open`.
 - **Backend**: Located in the `backend` directory.
 
 ## Contributing
