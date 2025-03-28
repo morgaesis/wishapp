@@ -11,7 +11,7 @@ async fn hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let port = 52389; // Updated to use the new port
+    let port: u16 = std::env::var("PORT").unwrap_or_else(|_| "50080".to_string()).parse().expect("Invalid port number");
     println!("Server running at http://0.0.0.0:{}", port);
     HttpServer::new(|| {
         App::new().service(hello)
