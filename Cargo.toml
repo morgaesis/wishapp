@@ -4,11 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+playwright = { version = "0.0.20", optional = true }
+tokio = { version = "1.0", features = ["full"] }
 actix-web = "4.0.0"
 leptos = "0.7"
 reqwest = { version = "0.11", features = ["blocking"] }
 
-playwright = "0.0.20"
+[features]
+playwright = ["dep:playwright", "tokio/full"]
 
-tokio = { version = "1", features = ["full"] }
+
+
 
