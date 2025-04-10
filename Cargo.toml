@@ -10,3 +10,9 @@ tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.4", features = ["serde", "v4"] }
+
+[dev-dependencies]
+mockito = "1.1"
+httpmock = "0.7.0"
+testcontainers = "0.15"
+tokio-test = "0.4"
