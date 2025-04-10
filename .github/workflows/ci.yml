@@ -7,11 +7,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      
       - name: Setup Dagger
         uses: dagger/setup-dagger@v3
       
-      - name: Run checks
+      - name: Initialize Dagger project
         run: |
-          dagger run -- cargo fmt --check
-          dagger run -- cargo clippy --all-targets --all-features -- -D warnings
-          dagger run -- cargo test
+          cd ci
+          go mod init ci
+          go get dagger.io/dagger@latest
+      
+      - name: Run Dagger pipeline
+        run: |
+          cd ci
+          go run main.go
