@@ -1,5 +1,7 @@
 name: CI
-on: [push, pull_request]
+on:
+  pull_request:
+    branches: [main]
 
 jobs:
   verify:
@@ -25,3 +27,28 @@ jobs:
         run: |
           cd ci
           go run main.go
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          override: true
+
+      - name: Run cargo tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --verbose -- --nocapture
+
+      - name: Run clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+
+      - name: Check formatting
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: -- --check
