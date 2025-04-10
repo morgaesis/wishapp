@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub mod handlers;
+pub use handlers::{handle_get, handle_post, handle_put, handle_delete};
+
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Wishlist {
     pub id: String,
