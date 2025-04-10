@@ -1,6 +1,8 @@
 use lambda_http::{run, service_fn, Body, Error, Request, Response};
+mod handlers;
+pub use handlers::{handle_get, handle_post, handle_put, handle_delete};
 
-async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
+pub async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
     match event.method().as_str() {
         "GET" => handle_get(event).await,
         "POST" => handle_post(event).await,
@@ -12,27 +14,7 @@ async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
     }
 }
 
-async fn handle_get(_event: Request) -> Result<Response<Body>, Error> {
-    // TODO: Implement GET logic
-    Ok(Response::builder().status(200).body("GET handler".into())?)
-}
 
-async fn handle_post(_event: Request) -> Result<Response<Body>, Error> {
-    // TODO: Implement POST logic
-    Ok(Response::builder()
-        .status(201)
-        .body("POST handler".into())?)
-}
-
-async fn handle_put(_event: Request) -> Result<Response<Body>, Error> {
-    // TODO: Implement PUT logic
-    Ok(Response::builder().status(200).body("PUT handler".into())?)
-}
-
-async fn handle_delete(_event: Request) -> Result<Response<Body>, Error> {
-    // TODO: Implement DELETE logic
-    Ok(Response::builder().status(204).body("".into())?)
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
