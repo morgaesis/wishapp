@@ -1,5 +1,4 @@
 use lambda_http::{run, service_fn, Body, Error, Request, Response};
-use wishlist_api::Wishlist;
 
 async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
     match event.method().as_str() {
@@ -18,7 +17,7 @@ async fn handle_get(_event: Request) -> Result<Response<Body>, Error> {
     Ok(Response::builder().status(200).body("GET handler".into())?)
 }
 
-async fn handle_post(event: Request) -> Result<Response<Body>, Error> {
+async fn handle_post(_event: Request) -> Result<Response<Body>, Error> {
     // TODO: Implement POST logic
     Ok(Response::builder()
         .status(201)
