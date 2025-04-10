@@ -5,7 +5,9 @@ pub async fn handle_get(_event: Request) -> Result<Response<Body>, Error> {
 }
 
 pub async fn handle_post(_event: Request) -> Result<Response<Body>, Error> {
-    Ok(Response::builder().status(201).body("POST handler".into())?)
+    Ok(Response::builder()
+        .status(201)
+        .body("POST handler".into())?)
 }
 
 pub async fn handle_put(_event: Request) -> Result<Response<Body>, Error> {

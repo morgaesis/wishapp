@@ -1,6 +1,6 @@
 use lambda_http::{run, service_fn, Body, Error, Request, Response};
 mod handlers;
-pub use handlers::{handle_get, handle_post, handle_put, handle_delete};
+pub use handlers::{handle_delete, handle_get, handle_post, handle_put};
 
 pub async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
     match event.method().as_str() {
@@ -13,8 +13,6 @@ pub async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
             .body("Method Not Allowed".into())?),
     }
 }
-
-
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {

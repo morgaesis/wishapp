@@ -1,6 +1,6 @@
 use lambda_http::{Body, Request};
 use serde_json::json;
-use wishlist_api::handlers::{handle_get, handle_post, handle_put, handle_delete};
+use wishlist_api::handlers::{handle_delete, handle_get, handle_post, handle_put};
 
 #[tokio::test]
 async fn test_get_handler() {
