@@ -4,10 +4,15 @@ pub async fn handle_get(_event: Request) -> Result<Response<Body>, Error> {
     Ok(Response::builder().status(200).body("GET handler".into())?)
 }
 
+use serde_json::json;
+use uuid::Uuid;
+
 pub async fn handle_post(_event: Request) -> Result<Response<Body>, Error> {
+    let new_id = Uuid::new_v4();
     Ok(Response::builder()
         .status(201)
-        .body("POST handler".into())?)
+        .header("Content-Type", "application/json")
+        .body(json!({"id": new_id.to_string()}).to_string().into())?)
 }
 
 pub async fn handle_put(_event: Request) -> Result<Response<Body>, Error> {

@@ -15,3 +15,5 @@ Cargo.lock
 .Trashes
 ehthumbs.db
 Thumbs.db
+*.out
+*.log
