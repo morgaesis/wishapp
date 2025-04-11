@@ -49,10 +49,13 @@ async fn test_full_lifecycle() {
     assert_eq!(get_res.status(), 200);
 
     // Update
-    let update_req = Request::new(Body::from(json!({
-        "id": list_id,
-        "name": "Updated Lifecycle Test"
-    }).to_string()));
+    let update_req = Request::new(Body::from(
+        json!({
+            "id": list_id,
+            "name": "Updated Lifecycle Test"
+        })
+        .to_string(),
+    ));
     let update_res = handle_put(update_req).await.unwrap();
     assert_eq!(update_res.status(), 200);
 

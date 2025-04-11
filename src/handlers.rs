@@ -4,8 +4,8 @@ pub async fn handle_get(_event: Request) -> Result<Response<Body>, Error> {
     Ok(Response::builder().status(200).body("GET handler".into())?)
 }
 
-use uuid::Uuid;
 use serde_json::json;
+use uuid::Uuid;
 
 pub async fn handle_post(_event: Request) -> Result<Response<Body>, Error> {
     let new_id = Uuid::new_v4();
