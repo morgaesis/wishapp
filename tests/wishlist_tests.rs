@@ -1,4 +1,4 @@
-use wishlist_api::Wishlist;
+use wishlist_api::handlers::Wishlist;
 
 #[cfg(test)]
 mod tests {
