@@ -1,25 +1,44 @@
 use lambda_http::{Body, Request};
 use serde_json::json;
-use wishlist_api::{handle_delete, handle_get, handle_post, handle_put};
 use wishlist_api::handlers::Wishlist;
+use wishlist_api::{handle_delete, handle_get, handle_post, handle_put};
 
 #[tokio::test]
 async fn test_full_wishlist_lifecycle() {
-    // 0. Clear all existing wishlists
+    // 0. Clear all existing wishlists with retries and verification
+    println!("[DEBUG] Starting test cleanup");
+    // Force cleanup all wishlists
+    println!("[DEBUG] Starting cleanup");
     let clear_req = Request::new(Body::from(json!({"clear_all": true}).to_string()));
-    let _ = handle_delete(clear_req).await;
+    let clear_res = handle_delete(clear_req).await.unwrap();
+    assert_eq!(clear_res.status(), 200, "Cleanup should succeed");
+    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+
+    // Verify empty state
+    let check_req = Request::new(Body::Empty);
+    let check_res = handle_get(check_req).await.unwrap();
+    let wishlists: Vec<Wishlist> = serde_json::from_slice(check_res.body()).unwrap();
+    assert!(
+        wishlists.is_empty(),
+        "Should start with empty wishlists, found: {:?}",
+        wishlists
+    );
 
     // 1. Verify initial empty state
     let empty_res = handle_get(Request::new(Body::Empty)).await.unwrap();
     assert_eq!(empty_res.status(), 200);
     let empty_wishlists: Vec<Wishlist> = serde_json::from_slice(empty_res.body()).unwrap();
-    assert_eq!(empty_wishlists.len(), 0, "Should start with empty wishlists");
+    assert_eq!(
+        empty_wishlists.len(),
+        0,
+        "Should start with empty wishlists"
+    );
 
     // 2. Create a new wishlist
     let create_req = Request::new(Body::from(
         json!({
             "id": "test-id-1",
-            "name": "Christmas List", 
+            "name": "Christmas List",
             "items": ["Socks", "Chocolate"]
         })
         .to_string(),
@@ -55,9 +74,13 @@ async fn test_full_wishlist_lifecycle() {
     let get_updated = handle_get(Request::new(Body::Empty)).await.unwrap();
     let updated_wishlists: Vec<Wishlist> = serde_json::from_slice(get_updated.body()).unwrap();
     println!("Current wishlists: {:?}", updated_wishlists); // Debug output
-    assert_eq!(updated_wishlists.len(), 1, "Should have exactly one wishlist");
     assert_eq!(
-        updated_wishlists[0].items, 
+        updated_wishlists.len(),
+        1,
+        "Should have exactly one wishlist"
+    );
+    assert_eq!(
+        updated_wishlists[0].items,
         vec!["Socks", "Chocolate", "Book"],
         "Items should match expected set"
     );
