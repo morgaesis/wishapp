@@ -8,7 +8,7 @@ pub mod handlers {
     pub use wishlist::Wishlist;
 }
 
-static WISHLISTS: Lazy<Mutex<Vec<handlers::wishlist::Wishlist>>> =
+pub static WISHLISTS: Lazy<Mutex<Vec<handlers::wishlist::Wishlist>>> =
     Lazy::new(|| Mutex::new(Vec::new()));
 
 pub async fn handle_get(_event: Request) -> Result<Response<Body>, Error> {
@@ -64,8 +64,16 @@ pub async fn handle_put(event: Request) -> Result<Response<Body>, Error> {
 pub async fn handle_delete(event: Request) -> Result<Response<Body>, Error> {
     let body = event.body();
     let data: serde_json::Value = from_slice(body)?;
-    let id = data["id"].as_str().unwrap_or("");
 
+    // Handle clear_all request
+    if data.get("clear_all").is_some() {
+        let mut wishlists = WISHLISTS.lock().unwrap();
+        wishlists.clear();
+        return Ok(Response::builder().status(204).body("".into())?);
+    }
+
+    // Normal deletion by ID
+    let id = data["id"].as_str().unwrap_or("");
     let mut wishlists = WISHLISTS.lock().unwrap();
     if let Some(pos) = wishlists.iter().position(|w| w.id == id) {
         wishlists.remove(pos);
