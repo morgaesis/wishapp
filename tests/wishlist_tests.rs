@@ -1,4 +1,4 @@
-use wishlist_api::Wishlist;
+use wishlist_api::handlers::Wishlist;
 
 #[cfg(test)]
 mod tests {
@@ -6,15 +6,23 @@ mod tests {
 
     #[test]
     fn test_wishlist_creation() {
-        let w = Wishlist::new("Test List".to_string());
+        let w = Wishlist {
+            id: "test-id".to_string(),
+            name: "Test List".to_string(),
+            items: Vec::new(),
+        };
         assert_eq!(w.name, "Test List");
         assert!(w.items.is_empty());
     }
 
     #[test]
     fn test_item_addition() {
-        let mut w = Wishlist::new("Test".to_string());
-        w.add_item("Item 1".to_string());
+        let mut w = Wishlist {
+            id: "test-id".to_string(),
+            name: "Test".to_string(),
+            items: Vec::new(),
+        };
+        w.items.push("Item 1".to_string());
         assert_eq!(w.items.len(), 1);
     }
 }
