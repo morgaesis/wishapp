@@ -6,8 +6,9 @@ use wishlist_api::{handle_delete, handle_get, handle_post, handle_put};
 #[tokio::test]
 async fn test_full_wishlist_lifecycle() {
     // Generate unique test ID and skip cleanup
-    let test_id = format!("test-{}-{}", 
-        chrono::Utc::now().timestamp_nanos(),
+    let test_id = format!(
+        "test-{}-{}",
+        chrono::Utc::now().timestamp_nanos_opt().unwrap(),
         rand::random::<u32>()
     );
     println!("[DEBUG] Using unique test ID: {}", test_id);
