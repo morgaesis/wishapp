@@ -21,12 +21,17 @@ pub async fn handle_get(_event: Request) -> Result<Response<Body>, Error> {
 
 pub async fn handle_post(event: Request) -> Result<Response<Body>, Error> {
     let body = event.body();
-    let wishlist: handlers::wishlist::Wishlist = from_slice(body)?;
+    let mut wishlist: handlers::wishlist::Wishlist = from_slice(body)?;
 
     if wishlist.name.is_empty() {
         return Ok(Response::builder()
             .status(400)
             .body("Name cannot be empty".into())?);
+    }
+
+    // Add default chocolate item if not already present
+    if !wishlist.items.contains(&"Chocolate".to_string()) {
+        wishlist.items.push("Chocolate".to_string());
     }
 
     let mut wishlists = WISHLISTS.lock().unwrap();

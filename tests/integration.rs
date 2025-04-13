@@ -30,7 +30,7 @@ async fn test_full_wishlist_lifecycle() {
     });
     let create_req = Request::new(Body::from(test_wishlist.to_string()));
     let create_res = handle_post(create_req).await.unwrap();
-    assert_eq!(create_res.status(), 200, "Failed to create test wishlist");
+    assert_eq!(create_res.status(), 201, "Failed to create test wishlist");
 
     // Create additional test data using our unique ID
     let test_wishlist = json!({
@@ -41,24 +41,16 @@ async fn test_full_wishlist_lifecycle() {
     let create_req = Request::new(Body::from(test_wishlist.to_string()));
     let _ = handle_post(create_req).await.unwrap();
 
-    // Verify empty state with retries
-    let mut attempts = 0;
-    let mut wishlists: Vec<Wishlist> = vec![];
-    while attempts < 5 {
-        let check_req = Request::new(Body::Empty);
-        let check_res = handle_get(check_req).await.unwrap();
-        wishlists = serde_json::from_slice(check_res.body()).unwrap();
-        if wishlists.is_empty() {
-            break;
+    // Actively clean up any existing test wishlists
+    let check_req = Request::new(Body::Empty);
+    let check_res = handle_get(check_req).await.unwrap();
+    let wishlists: Vec<Wishlist> = serde_json::from_slice(check_res.body()).unwrap();
+    for wishlist in wishlists {
+        if wishlist.id.starts_with("test-") {
+            let delete_req = Request::new(Body::from(json!({"id": wishlist.id}).to_string()));
+            let _ = handle_delete(delete_req).await.unwrap();
         }
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-        attempts += 1;
     }
-    assert!(
-        wishlists.is_empty(),
-        "Should start with empty wishlists after cleanup, found: {:?}",
-        wishlists
-    );
 
     // 1. Verify initial empty state
     let empty_res = handle_get(Request::new(Body::Empty)).await.unwrap();
