@@ -11,7 +11,23 @@ pub mod handlers {
 pub static WISHLISTS: Lazy<Mutex<Vec<handlers::wishlist::Wishlist>>> =
     Lazy::new(|| Mutex::new(Vec::new()));
 
-pub async fn handle_get(_event: Request) -> Result<Response<Body>, Error> {
+pub async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
+    match event.method().as_str() {
+        "GET" => handle_get(event).await,
+        "POST" => handle_post(event).await,
+        "PUT" => handle_put(event).await,
+        "DELETE" => handle_delete(event).await,
+        _ => Ok(Response::builder()
+            .status(405)
+            .body("Method not allowed".into())?),
+    }
+}
+
+pub async fn handle_get(event: Request) -> Result<Response<Body>, Error> {
+    if event.uri().path() == "/health" {
+        return Ok(Response::builder().status(200).body("OK".into())?);
+    }
+
     let wishlists = WISHLISTS.lock().unwrap();
     Ok(Response::builder()
         .status(200)
