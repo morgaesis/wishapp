@@ -18,23 +18,10 @@ async fn test_health_check() {
         _ => panic!("Expected text response body, got {:?}", response.body()),
     }
 }
-async fn cleanup_test_wishlists() {
-    let mut check_req = Request::new(Body::Empty);
-    *check_req.uri_mut() = "/wishlists".parse().unwrap();
-    let check_res = handle_get(check_req).await.unwrap();
-    let wishlists = serde_json::from_slice::<Vec<Wishlist>>(check_res.body()).unwrap_or_default();
-    for wishlist in wishlists {
-        if wishlist.id.starts_with("test-") || wishlist.id == "test-id-2" {
-            let mut delete_req = Request::new(Body::Empty);
-            *delete_req.uri_mut() = format!("/wishlists/{}/", wishlist.id).parse().unwrap();
-            let _ = handle_delete(delete_req).await.unwrap();
-        }
-    }
-}
-
+// Cleanup function moved to end of file for final cleanup
 #[tokio::test]
-async fn test_full_wishlist_lifecycle() {\n    cleanup_test_wishlists().await;
-    
+async fn test_full_wishlist_lifecycle() {
+    // Test uses unique IDs so no initial cleanup needed
     let mut check_req = Request::new(Body::Empty);
 
     // Retry verification up to 3 times with delay
@@ -171,11 +158,12 @@ async fn test_full_wishlist_lifecycle() {\n    cleanup_test_wishlists().await;
 }
 
 #[tokio::test]
-async fn test_item_operations() {\n    cleanup_test_wishlists().await;
+async fn test_item_operations() {
+    // Test uses unique IDs so no initial cleanup needed
     // Create wishlist
     let create_req = Request::new(Body::from(
         json!({
-            "id": "test-id-2",
+            "id": format!("test-{}-{}", chrono::Utc::now().timestamp_nanos_opt().unwrap(), rand::random::<u32>()),
             "owner": "Test Owner",
             "items": ["Initial"]
         })
