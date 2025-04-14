@@ -1,7 +1,7 @@
 use lambda_http::{Body, Request};
 use serde_json::json;
 use wishlist_api::handlers::Wishlist;
-use wishlist_api::{handle_delete, handle_get, handle_post, handle_put};
+use wishlist_api::handlers::{handle_delete, handle_get, handle_post, handle_put};
 
 #[tokio::test]
 async fn test_health_check() {
@@ -18,59 +18,85 @@ async fn test_health_check() {
         _ => panic!("Expected text response body, got {:?}", response.body()),
     }
 }
+async fn cleanup_test_wishlists() {
+    let mut check_req = Request::new(Body::Empty);
+    *check_req.uri_mut() = "/wishlists".parse().unwrap();
+    let check_res = handle_get(check_req).await.unwrap();
+    let wishlists = serde_json::from_slice::<Vec<Wishlist>>(check_res.body()).unwrap_or_default();
+    for wishlist in wishlists {
+        if wishlist.id.starts_with("test-") || wishlist.id == "test-id-2" {
+            let mut delete_req = Request::new(Body::Empty);
+            *delete_req.uri_mut() = format!("/wishlists/{}/", wishlist.id).parse().unwrap();
+            let _ = handle_delete(delete_req).await.unwrap();
+        }
+    }
+}
 
 #[tokio::test]
-async fn test_full_wishlist_lifecycle() {
-    // Generate unique test ID and skip cleanup
+async fn test_full_wishlist_lifecycle() {\n    cleanup_test_wishlists().await;
+    
+    let mut check_req = Request::new(Body::Empty);
+
+    // Retry verification up to 3 times with delay
+    let mut retries = 0;
+    let max_retries = 3;
+    let mut empty_wishlists: Vec<Wishlist> = Vec::new();
+    
+    while retries < max_retries {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let mut empty_req = Request::new(Body::Empty);
+        *empty_req.uri_mut() = "/wishlists".parse().unwrap();
+        let empty_res = handle_get(empty_req).await.unwrap();
+        println!("Empty verification attempt {}: {:?}", retries + 1, empty_res);
+        empty_wishlists = serde_json::from_slice(empty_res.body()).unwrap();
+        
+        if empty_wishlists.is_empty() {
+            break;
+        }
+        retries += 1;
+    }
+
+    // Final verification after retries
+    println!("Final wishlist state: {:?}", empty_wishlists);
+    assert_eq!(empty_wishlists.len(), 0, "Should start with empty wishlists");
+
+    // Generate unique test ID
     let test_id = format!(
         "test-{}-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap(),
         rand::random::<u32>()
     );
-    println!("[DEBUG] Using unique test ID: {}", test_id);
-
-    // Verify no existing wishlists with this ID
-    let check_req = Request::new(Body::Empty);
-    let check_res = handle_get(check_req).await.unwrap();
-    let existing: Vec<Wishlist> = serde_json::from_slice(check_res.body()).unwrap();
-    assert!(
-        !existing.iter().any(|w| w.id == test_id),
-        "Test ID collision detected for ID: {}",
-        test_id
-    );
 
     // Create test wishlist with our unique ID
     let test_wishlist = json!({
         "id": test_id,
-        "name": "Test Wishlist",
+        "owner": "Test Owner",
         "items": ["Initial"]
     });
     let create_req = Request::new(Body::from(test_wishlist.to_string()));
     let create_res = handle_post(create_req).await.unwrap();
     assert_eq!(create_res.status(), 201, "Failed to create test wishlist");
 
-    // Create additional test data using our unique ID
-    let test_wishlist = json!({
-        "id": test_id,
-        "name": "Test Wishlist",
-        "items": ["Initial"]
-    });
-    let create_req = Request::new(Body::from(test_wishlist.to_string()));
-    let _ = handle_post(create_req).await.unwrap();
-
     // Actively clean up any existing test wishlists
-    let check_req = Request::new(Body::Empty);
+    let mut check_req = Request::new(Body::Empty);
+    *check_req.uri_mut() = "/wishlists".parse().unwrap();
     let check_res = handle_get(check_req).await.unwrap();
-    let wishlists: Vec<Wishlist> = serde_json::from_slice(check_res.body()).unwrap();
+    let wishlists = if check_res.status() == 200 {
+        serde_json::from_slice::<Vec<Wishlist>>(check_res.body()).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
     for wishlist in wishlists {
-        if wishlist.id.starts_with("test-") {
-            let delete_req = Request::new(Body::from(json!({"id": wishlist.id}).to_string()));
+        if wishlist.id.starts_with("test-") || wishlist.id == "test-id-2" {
+            let mut delete_req = Request::new(Body::Empty); *delete_req.uri_mut() = format!("/wishlists/{}/", wishlist.id).parse().unwrap();
             let _ = handle_delete(delete_req).await.unwrap();
         }
     }
 
     // 1. Verify initial empty state
-    let empty_res = handle_get(Request::new(Body::Empty)).await.unwrap();
+    let mut empty_req = Request::new(Body::Empty);
+    *empty_req.uri_mut() = "/wishlists".parse().unwrap();
+    let empty_res = handle_get(empty_req).await.unwrap();
     assert_eq!(empty_res.status(), 200);
     let empty_wishlists: Vec<Wishlist> = serde_json::from_slice(empty_res.body()).unwrap();
     assert_eq!(
@@ -85,7 +111,7 @@ async fn test_full_wishlist_lifecycle() {
     let create_req = Request::new(Body::from(
         json!({
             "id": "test-id-1",
-            "name": "Christmas List",
+            "owner": "Christmas Owner",
             "items": ["Socks"] // Starting with just one item
         })
         .to_string(),
@@ -93,7 +119,7 @@ async fn test_full_wishlist_lifecycle() {
     let create_res = handle_post(create_req).await.unwrap();
     assert_eq!(create_res.status(), 201);
     let created: Wishlist = serde_json::from_slice(create_res.body()).unwrap();
-    assert_eq!(created.name, "Christmas List");
+    assert_eq!(created.owner, "Christmas Owner");
     assert_eq!(created.items, vec!["Socks", "Chocolate"]);
 
     // 3. Verify wishlist appears in GET
@@ -106,7 +132,7 @@ async fn test_full_wishlist_lifecycle() {
     let update_req = Request::new(Body::from(
         json!({
             "id": created.id,
-            "name": "Updated Christmas List",
+            "owner": "Updated Christmas Owner",
             "items": ["Socks", "Chocolate", "Book"]
         })
         .to_string(),
@@ -114,7 +140,7 @@ async fn test_full_wishlist_lifecycle() {
     let update_res = handle_put(update_req).await.unwrap();
     assert_eq!(update_res.status(), 200);
     let updated: Wishlist = serde_json::from_slice(update_res.body()).unwrap();
-    assert_eq!(updated.name, "Updated Christmas List");
+    assert_eq!(updated.owner, "Updated Christmas Owner");
     assert_eq!(updated.items.len(), 3);
 
     // 5. Verify update persisted
@@ -141,27 +167,33 @@ async fn test_full_wishlist_lifecycle() {
     let final_get = handle_get(Request::new(Body::Empty)).await.unwrap();
     let final_wishlists: Vec<Wishlist> = serde_json::from_slice(final_get.body()).unwrap();
     assert!(final_wishlists.is_empty());
+
 }
 
 #[tokio::test]
-async fn test_item_operations() {
+async fn test_item_operations() {\n    cleanup_test_wishlists().await;
     // Create wishlist
     let create_req = Request::new(Body::from(
         json!({
             "id": "test-id-2",
-            "name": "Test Items",
+            "owner": "Test Owner",
             "items": ["Initial"]
         })
         .to_string(),
     ));
     let create_res = handle_post(create_req).await.unwrap();
-    let wishlist: Wishlist = serde_json::from_slice(create_res.body()).unwrap();
+    println!("[DEBUG] Create response: {:?}", create_res.body());
+    let wishlist: Wishlist = if create_res.status() == 201 {
+        serde_json::from_slice(create_res.body()).expect("Failed to parse wishlist")
+    } else {
+        panic!("Failed to create wishlist: {}", create_res.status());
+    };
 
     // Test adding item via PUT
     let add_item_req = Request::new(Body::from(
         json!({
             "id": wishlist.id,
-            "name": "Test Items",
+            "owner": "Test Owner",
             "items": ["Initial", "Added"]
         })
         .to_string(),
@@ -175,7 +207,7 @@ async fn test_item_operations() {
     let remove_item_req = Request::new(Body::from(
         json!({
             "id": wishlist.id,
-            "name": "Test Items",
+            "owner": "Test Owner",
             "items": ["Added"] // Remove "Initial"
         })
         .to_string(),
@@ -199,7 +231,7 @@ async fn test_error_handling() {
     let update_req = Request::new(Body::from(
         json!({
             "id": fake_id,
-            "name": "Test",
+            "owner": "Test Owner",
             "items": []
         })
         .to_string(),

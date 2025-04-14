@@ -22,7 +22,7 @@ async fn test_health_check() {
 async fn test_wishlist_endpoint() {
     let request = http::Request::builder()
         .method("GET")
-        .uri("/api/wishlists")
+        .uri("/wishlists")
         .body(Body::Empty)
         .unwrap();
 
