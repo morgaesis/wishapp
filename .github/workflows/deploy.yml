@@ -30,6 +30,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Cache test targets
+        uses: actions/cache@v3
+        with:
+          path: target/debug/deps
+          key: ${{ runner.os }}-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-test-
+
       - name: Build and Verify
         run: |
           cargo build --release
@@ -66,6 +74,14 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
+
+      - name: Cache test targets
+        uses: actions/cache@v3
+        with:
+          path: target/debug/deps
+          key: ${{ runner.os }}-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-test-
 
       - name: Run Private Tests
         env:
