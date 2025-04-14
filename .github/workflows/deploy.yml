@@ -1,0 +1,54 @@
+name: Deployment Pipeline
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          
+      - name: Build and Verify
+        run: |
+          cargo build --release
+          cargo test --release --verbose
+          
+      - name: Deploy to Production
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
+        run: |
+          ./deploy.sh --public
+          ./verify-deployment.sh
+          
+  feature-test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: feature-testing
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          
+      - name: Run Private Tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TEST_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TEST_AWS_SECRET_ACCESS_KEY }}
+        run: |
+          cargo test --verbose -- --nocapture
+          ./run-integration-tests.sh --private

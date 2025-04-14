@@ -1,7 +1,25 @@
 use lambda_http::{Body, Request};
 use serde_json::json;
 use wishlist_api::handlers::Wishlist;
-use wishlist_api::{handle_delete, handle_get, handle_post, handle_put};
+use wishlist_api::{handle_get, handle_post, handle_put, handle_delete};
+
+#[tokio::test]
+async fn test_health_check() {
+    let mut event = Request::new(Body::Empty);
+    *event.uri_mut() = "/health".parse().unwrap();
+    
+    println!("Request URI: {}", event.uri());
+    
+    let response = handle_get(event)
+        .await
+        .expect("expected Ok(_) value");
+    
+    assert_eq!(response.status(), 200);
+    match response.body() {
+        Body::Text(text) => assert_eq!(text, "OK"),
+        _ => panic!("Expected text response body, got {:?}", response.body()),
+    }
+}
 
 #[tokio::test]
 async fn test_full_wishlist_lifecycle() {
@@ -165,8 +183,10 @@ async fn test_item_operations() {
         .to_string(),
     ));
     let remove_item_res = handle_put(remove_item_req).await.unwrap();
+    assert_eq!(remove_item_res.status(), 200);
     let final_state: Wishlist = serde_json::from_slice(remove_item_res.body()).unwrap();
-    assert_eq!(final_state.items, vec!["Added"]);
+    assert_eq!(final_state.items.len(), 1);
+    assert!(final_state.items.contains(&"Added".to_string()));
 }
 
 #[tokio::test]
