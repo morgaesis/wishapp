@@ -1,15 +1,8 @@
 use lambda_http::{Body, Error, Request, Response};
-use serde::{Serialize, Deserialize};
 use serde_json::json;
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Wishlist {
-    pub id: String,
-    pub items: Vec<String>,
-    pub owner: String,
-}
+use crate::handlers::wishlist::Wishlist;
 
 pub static WISHLISTS: Lazy<Mutex<Vec<Wishlist>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
