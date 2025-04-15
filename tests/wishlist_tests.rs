@@ -8,6 +8,7 @@ mod tests {
     fn test_wishlist_creation() {
         let w = Wishlist {
             id: "test-id".to_string(),
+            name: "Test Wishlist".to_string(),
             owner: "Test Owner".to_string(),
             items: Vec::new(),
         };
@@ -19,6 +20,7 @@ mod tests {
     fn test_item_addition() {
         let mut w = Wishlist {
             id: "test-id".to_string(),
+            name: "Test Wishlist".to_string(),
             owner: "Test Owner".to_string(),
             items: Vec::new(),
         };

@@ -1,8 +1,10 @@
+pub mod wishlist;
+
+pub use crate::handlers::wishlist::Wishlist;
 use lambda_http::{Body, Error, Request, Response};
+use once_cell::sync::Lazy;
 use serde_json::json;
 use std::sync::Mutex;
-use once_cell::sync::Lazy;
-use crate::handlers::wishlist::Wishlist;
 
 pub static WISHLISTS: Lazy<Mutex<Vec<Wishlist>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
@@ -46,7 +48,10 @@ pub async fn handle_put(event: Request) -> Result<Response<Body>, Error> {
 }
 
 pub async fn handle_delete(event: Request) -> Result<Response<Body>, Error> {
-    println!("Deleting wishlist with ID: {}", event.uri().path()); println!("Delete request URI: {}", event.uri()); let id = event.uri().path().split('/').last().unwrap_or(""); println!("Extracted ID: {}", id);
+    println!("Deleting wishlist with ID: {}", event.uri().path());
+    println!("Delete request URI: {}", event.uri());
+    let id = event.uri().path().split('/').last().unwrap_or("");
+    println!("Extracted ID: {}", id);
     let mut wishlists = WISHLISTS.lock().unwrap();
     if let Some(pos) = wishlists.iter().position(|w| w.id == id) {
         wishlists.remove(pos);

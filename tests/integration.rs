@@ -22,21 +22,25 @@ async fn test_health_check() {
 #[tokio::test]
 async fn test_full_wishlist_lifecycle() {
     // Test uses unique IDs so no initial cleanup needed
-    let mut check_req = Request::new(Body::Empty);
+    let check_req = Request::new(Body::Empty);
 
     // Retry verification up to 3 times with delay
     let mut retries = 0;
     let max_retries = 3;
     let mut empty_wishlists: Vec<Wishlist> = Vec::new();
-    
+
     while retries < max_retries {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         let mut empty_req = Request::new(Body::Empty);
         *empty_req.uri_mut() = "/wishlists".parse().unwrap();
         let empty_res = handle_get(empty_req).await.unwrap();
-        println!("Empty verification attempt {}: {:?}", retries + 1, empty_res);
+        println!(
+            "Empty verification attempt {}: {:?}",
+            retries + 1,
+            empty_res
+        );
         empty_wishlists = serde_json::from_slice(empty_res.body()).unwrap();
-        
+
         if empty_wishlists.is_empty() {
             break;
         }
@@ -45,7 +49,11 @@ async fn test_full_wishlist_lifecycle() {
 
     // Final verification after retries
     println!("Final wishlist state: {:?}", empty_wishlists);
-    assert_eq!(empty_wishlists.len(), 0, "Should start with empty wishlists");
+    assert_eq!(
+        empty_wishlists.len(),
+        0,
+        "Should start with empty wishlists"
+    );
 
     // Generate unique test ID
     let test_id = format!(
@@ -75,7 +83,8 @@ async fn test_full_wishlist_lifecycle() {
     };
     for wishlist in wishlists {
         if wishlist.id.starts_with("test-") || wishlist.id == "test-id-2" {
-            let mut delete_req = Request::new(Body::Empty); *delete_req.uri_mut() = format!("/wishlists/{}/", wishlist.id).parse().unwrap();
+            let mut delete_req = Request::new(Body::Empty);
+            *delete_req.uri_mut() = format!("/wishlists/{}/", wishlist.id).parse().unwrap();
             let _ = handle_delete(delete_req).await.unwrap();
         }
     }
@@ -154,7 +163,6 @@ async fn test_full_wishlist_lifecycle() {
     let final_get = handle_get(Request::new(Body::Empty)).await.unwrap();
     let final_wishlists: Vec<Wishlist> = serde_json::from_slice(final_get.body()).unwrap();
     assert!(final_wishlists.is_empty());
-
 }
 
 #[tokio::test]

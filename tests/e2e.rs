@@ -1,4 +1,4 @@
-use lambda_http::{http, Body, Request};
+use lambda_http::{http, Body};
 use serial_test::serial;
 use wishlist_api::handle_request;
 

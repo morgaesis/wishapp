@@ -1,5 +1,5 @@
-use lambda_http::{Body, Error, Request, Response};
 use handlers::{handle_delete, handle_get, handle_post, handle_put};
+use lambda_http::{Body, Error, Request, Response};
 
 pub mod handlers;
 
