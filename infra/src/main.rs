@@ -88,55 +88,75 @@ impl WishappStack {
             }
         );
 
-        // Add specific permissions for each service
+        // Configure IAM permissions following the principle of least privilege
+        
+        // S3 Permissions
+        // These permissions allow the application to:
+        // - Upload and manage static assets (images, CSS, JS files)
+        // - Read and write user-uploaded content
+        // - List bucket contents for verification
         deploy_role.add_to_policy(PolicyStatement::new()
             .add_actions(vec![
-                // S3 permissions for static assets
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:ListBucket",
-                "s3:DeleteObject",
+                "s3:PutObject",     // Upload new files
+                "s3:GetObject",     // Read existing files
+                "s3:ListBucket",    // List bucket contents
+                "s3:DeleteObject",  // Remove old/unused files
             ])
             .add_resources(vec![
+                // Restrict access to only the application's asset bucket
                 format!("arn:aws:s3:::wishapp-assets-{}", stack.account()),
                 format!("arn:aws:s3:::wishapp-assets-{}/*", stack.account()),
             ]));
 
+        // DynamoDB Permissions
+        // These permissions enable the application to:
+        // - Store and retrieve user data and wish lists
+        // - Update existing entries
+        // - Query data for user-specific views
         deploy_role.add_to_policy(PolicyStatement::new()
             .add_actions(vec![
-                // DynamoDB permissions
-                "dynamodb:PutItem",
-                "dynamodb:GetItem",
-                "dynamodb:UpdateItem",
-                "dynamodb:DeleteItem",
-                "dynamodb:Query",
-                "dynamodb:Scan",
+                "dynamodb:PutItem",    // Create new records
+                "dynamodb:GetItem",    // Read single records
+                "dynamodb:UpdateItem", // Modify existing records
+                "dynamodb:DeleteItem", // Remove records
+                "dynamodb:Query",      // Search within partition key
+                "dynamodb:Scan",       // List all records (use sparingly)
             ])
             .add_resources(vec![
+                // Restrict to tables with wishapp- prefix for this application
                 format!("arn:aws:dynamodb:{}:{}:table/wishapp-*", 
                     stack.region(), stack.account()),
             ]));
 
+        // CloudFront Permissions
+        // These permissions allow the application to:
+        // - Manage CDN distribution for optimal content delivery
+        // - Invalidate cache when content changes
         deploy_role.add_to_policy(PolicyStatement::new()
             .add_actions(vec![
-                // CloudFront permissions
-                "cloudfront:CreateInvalidation",
-                "cloudfront:GetDistribution",
-                "cloudfront:UpdateDistribution",
+                "cloudfront:CreateInvalidation", // Clear cached content
+                "cloudfront:GetDistribution",    // Read distribution config
+                "cloudfront:UpdateDistribution", // Modify distribution settings
             ])
             .add_resources(vec![
+                // Allow management of all distributions as they're account-wide
                 format!("arn:aws:cloudfront::{}:distribution/*", stack.account()),
             ]));
 
+        // Lambda Permissions
+        // These permissions enable the application to:
+        // - Deploy and update serverless functions
+        // - Monitor function status and configuration
+        // - Execute functions for testing
         deploy_role.add_to_policy(PolicyStatement::new()
             .add_actions(vec![
-                // Lambda permissions
-                "lambda:UpdateFunctionCode",
-                "lambda:UpdateFunctionConfiguration",
-                "lambda:GetFunction",
-                "lambda:InvokeFunction",
+                "lambda:UpdateFunctionCode",       // Deploy new versions
+                "lambda:UpdateFunctionConfiguration", // Modify settings
+                "lambda:GetFunction",             // Read function details
+                "lambda:InvokeFunction",          // Execute functions
             ])
             .add_resources(vec![
+                // Restrict to functions with wishapp- prefix
                 format!("arn:aws:lambda:{}:{}:function:wishapp-*",
                     stack.region(), stack.account()),
             ]));
