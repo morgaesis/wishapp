@@ -3,8 +3,7 @@ use aws_cdk_lib::aws_iam::{Role, ServicePrincipal, PolicyStatement, FederatedPri
 use aws_cdk_lib::aws_iam::OidcProvider;
 use constructs::Construct;
 
-// SECURITY WARNING: AdministratorAccess provides excessive privileges
-// Consider granular permissions instead of full admin access
+
 
 
 /// Properties required for configuring the Wishapp infrastructure stack
