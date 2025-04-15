@@ -88,13 +88,58 @@ impl WishappStack {
             }
         );
 
-        // TODO: Replace AdministratorAccess with specific permissions
-        // Current permissions are overly permissive. Should be replaced with:
-        // - S3 access for static assets
-        // - DynamoDB access for application data
-        // - CloudFront permissions for CDN management
-        // - Lambda permissions for serverless functions
-        deploy_role.add_managed_policy(ManagedPolicy::from_aws_managed_policy_name("AdministratorAccess"));
+        // Add specific permissions for each service
+        deploy_role.add_to_policy(PolicyStatement::new()
+            .add_actions(vec![
+                // S3 permissions for static assets
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:DeleteObject",
+            ])
+            .add_resources(vec![
+                format!("arn:aws:s3:::wishapp-assets-{}", stack.account()),
+                format!("arn:aws:s3:::wishapp-assets-{}/*", stack.account()),
+            ]));
+
+        deploy_role.add_to_policy(PolicyStatement::new()
+            .add_actions(vec![
+                // DynamoDB permissions
+                "dynamodb:PutItem",
+                "dynamodb:GetItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:Query",
+                "dynamodb:Scan",
+            ])
+            .add_resources(vec![
+                format!("arn:aws:dynamodb:{}:{}:table/wishapp-*", 
+                    stack.region(), stack.account()),
+            ]));
+
+        deploy_role.add_to_policy(PolicyStatement::new()
+            .add_actions(vec![
+                // CloudFront permissions
+                "cloudfront:CreateInvalidation",
+                "cloudfront:GetDistribution",
+                "cloudfront:UpdateDistribution",
+            ])
+            .add_resources(vec![
+                format!("arn:aws:cloudfront::{}:distribution/*", stack.account()),
+            ]));
+
+        deploy_role.add_to_policy(PolicyStatement::new()
+            .add_actions(vec![
+                // Lambda permissions
+                "lambda:UpdateFunctionCode",
+                "lambda:UpdateFunctionConfiguration",
+                "lambda:GetFunction",
+                "lambda:InvokeFunction",
+            ])
+            .add_resources(vec![
+                format!("arn:aws:lambda:{}:{}:function:wishapp-*",
+                    stack.region(), stack.account()),
+            ]));
 
         Self { stack }
     }
@@ -110,7 +155,10 @@ fn main() {
         &app,
         "WishappStack",
         // These values should be configurable through environment variables
-        WishappStackProps::new("morgaesis", "wishapp")
+        WishappStackProps::new(
+    &std::env::var("GITHUB_ORG").unwrap_or_else(|_| "default_org".to_string()),
+    &std::env::var("GITHUB_REPO").unwrap_or_else(|_| "default_repo".to_string())
+)
     );
     app.synth();
 }
