@@ -1,4 +1,3 @@
-use lambda_http::http;
 use lambda_http::{Body, Request};
 use serde_json::json;
 use wishlist_api::handlers::Wishlist;
@@ -28,7 +27,7 @@ async fn test_full_wishlist_lifecycle() {
         wishlists.clear();
     }
     // Test uses unique IDs so no initial cleanup needed
-    let check_req = Request::new(Body::Empty);
+    let _check_req = Request::new(Body::Empty);
 
     // Retry verification up to 3 times with delay
     let mut retries = 0;

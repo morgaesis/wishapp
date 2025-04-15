@@ -10,12 +10,5 @@ pub struct Wishlist {
 }
 
 impl Wishlist {
-    pub fn new(name: String, owner: String) -> Self {
-        Wishlist {
-            id: Uuid::new_v4().to_string(),
-            name,
-            owner,
-            items: Vec::new(),
-        }
-    }
+    
 }
