@@ -55,9 +55,7 @@ async fn test_full_wishlist_lifecycle() {
     // Clear any existing test wishlists before starting
     for wishlist in &empty_wishlists {
         if wishlist.id.starts_with("test-") {
-            let delete_req = Request::new(Body::from(
-                json!({"id": wishlist.id}).to_string(),
-            ));
+            let delete_req = Request::new(Body::from(json!({"id": wishlist.id}).to_string()));
             let _ = handle_delete(delete_req).await;
         }
     }
@@ -73,7 +71,7 @@ async fn test_full_wishlist_lifecycle() {
     let test_wishlist = json!({
         "id": test_id,
         "name": "Test Wishlist",
-        "owner": "Test Owner", 
+        "owner": "Test Owner",
         "items": ["Initial"]
     });
     let create_req = Request::new(Body::from(test_wishlist.to_string()));
@@ -103,16 +101,19 @@ async fn test_full_wishlist_lifecycle() {
     let cleanup_res = handle_get(cleanup_req).await.unwrap();
     assert_eq!(cleanup_res.status(), 200);
     let existing_wishlists: Vec<Wishlist> = serde_json::from_slice(cleanup_res.body()).unwrap();
-    
-    println!("[DEBUG] Found {} existing wishlists to clean up", existing_wishlists.len());
-    
+
+    println!(
+        "[DEBUG] Found {} existing wishlists to clean up",
+        existing_wishlists.len()
+    );
+
     for wishlist in existing_wishlists {
         if wishlist.id.starts_with("test-") {
             println!("[DEBUG] Deleting wishlist with ID: {}", wishlist.id);
-            for _ in 0..3 { // Retry up to 3 times
-                let mut delete_req = Request::new(Body::from(
-                    json!({"id": wishlist.id}).to_string(),
-                ));
+            for _ in 0..3 {
+                // Retry up to 3 times
+                let mut delete_req =
+                    Request::new(Body::from(json!({"id": wishlist.id}).to_string()));
                 *delete_req.uri_mut() = format!("/wishlists/{}", wishlist.id).parse().unwrap();
                 match handle_delete(delete_req).await {
                     Ok(res) if res.status() == 200 => break,
@@ -161,24 +162,26 @@ async fn test_full_wishlist_lifecycle() {
         })
         .to_string(),
     ));
-    println!("[DEBUG] Update request payload: {}", String::from_utf8_lossy(update_req.body().as_ref()));
+    println!(
+        "[DEBUG] Update request payload: {}",
+        String::from_utf8_lossy(update_req.body().as_ref())
+    );
     let update_res = handle_put(update_req).await.unwrap();
     assert_eq!(update_res.status(), 200);
     println!("Update response body: {:?}", update_res.body().as_ref());
-    
+
     // Debug storage state immediately after update
     {
         let wishlists = wishlist_api::handlers::WISHLISTS.lock().unwrap();
         println!("Immediate post-update storage state: {:?}", *wishlists);
     }
-    
+
     let updated: Wishlist = if update_res.body().is_empty() {
-    panic!("Received empty response body when expecting updated wishlist");
-} else {
-    serde_json::from_slice(update_res.body()).unwrap_or_else(|_| {
-        panic!("Failed to parse response body: {:?}", update_res.body())
-    })
-};
+        panic!("Received empty response body when expecting updated wishlist");
+    } else {
+        serde_json::from_slice(update_res.body())
+            .unwrap_or_else(|_| panic!("Failed to parse response body: {:?}", update_res.body()))
+    };
     assert_eq!(updated.owner, "Updated Christmas Owner");
     assert_eq!(updated.items.len(), 3);
 
@@ -190,27 +193,27 @@ async fn test_full_wishlist_lifecycle() {
     let get_updated = handle_get(get_req).await.unwrap();
     println!("GET response status: {}", get_updated.status());
     println!("GET response body: {:?}", get_updated.body().as_ref());
-    
+
     if get_updated.status() == 404 {
         panic!("Wishlist not found after update - persistence failed");
     }
-    
+
     let body_bytes = get_updated.body();
     let body_str = std::str::from_utf8(body_bytes).unwrap();
     println!("GET response body as string: {}", body_str);
     let updated_wishlist: Wishlist = serde_json::from_slice(body_bytes)
         .unwrap_or_else(|_| panic!("Failed to parse wishlist from: {}", body_str));
     println!("Updated wishlist: {:?}", updated_wishlist);
-    
+
     // Debug: Print current storage state
-    let wishlists = wishlist_api::handlers::WISHLISTS.lock().unwrap();
-    println!("Current storage state: {:?}", *wishlists);
-    drop(wishlists);
+    {
+        let wishlists = wishlist_api::handlers::WISHLISTS.lock().unwrap();
+        println!("Current storage state: {:?}", *wishlists);
+    }
     assert_eq!(updated_wishlist.owner, "Updated Christmas Owner");
     assert_eq!(updated_wishlist.items.len(), 3);
     assert_eq!(
-        updated_wishlist.id,
-        created.id,
+        updated_wishlist.id, created.id,
         "Should have exactly one wishlist"
     );
     assert_eq!(

@@ -25,9 +25,7 @@ pub async fn handle_get(event: Request) -> Result<Response<Body>, Error> {
                     .status(200)
                     .body(serde_json::to_string(wishlist)?.into())?)
             } else {
-                Ok(Response::builder()
-                    .status(404)
-                    .body("Not Found".into())?)
+                Ok(Response::builder().status(404).body("Not Found".into())?)
             }
         }
         _ => Ok(Response::builder().status(404).body("Not Found".into())?),
@@ -73,27 +71,29 @@ pub async fn handle_delete(event: Request) -> Result<Response<Body>, Error> {
     let body = event.body().as_ref();
     let id_map: std::collections::HashMap<String, String> = match serde_json::from_slice(body) {
         Ok(map) => map,
-        Err(_) => return Ok(Response::builder()
-            .status(400)
-            .body(Body::from("Invalid request body"))?)
+        Err(_) => {
+            return Ok(Response::builder()
+                .status(400)
+                .body(Body::from("Invalid request body"))?)
+        }
     };
-    
+
     let id = match id_map.get("id") {
         Some(id) => id,
-        None => return Ok(Response::builder()
-            .status(400)
-            .body(Body::from("Missing id in request body"))?)
+        None => {
+            return Ok(Response::builder()
+                .status(400)
+                .body(Body::from("Missing id in request body"))?)
+        }
     };
 
     println!("[DEBUG] Deleting wishlist with ID: {}", id);
     let mut wishlists = WISHLISTS.lock().unwrap();
-    
+
     if let Some(pos) = wishlists.iter().position(|w| w.id == *id) {
         wishlists.remove(pos);
         println!("[DEBUG] Successfully deleted wishlist {}", id);
-        Ok(Response::builder()
-            .status(200)
-            .body(Body::Empty)?)
+        Ok(Response::builder().status(200).body(Body::Empty)?)
     } else {
         println!("[DEBUG] Wishlist {} not found", id);
         Ok(Response::builder()

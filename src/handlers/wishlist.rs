@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Wishlist {
@@ -9,6 +8,4 @@ pub struct Wishlist {
     pub items: Vec<String>,
 }
 
-impl Wishlist {
-    
-}
+impl Wishlist {}
