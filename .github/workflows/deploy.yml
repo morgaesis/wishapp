@@ -19,7 +19,12 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          # SECURITY: Ensure role has least-privilege permissions
+          # WARNING: AdministratorAccess policy should NEVER be used
+          # TODO: Add aws-region input validation
           aws-region: ${{ secrets.AWS_REGION }}
+
+      
 
       - uses: actions/cache@v3
         with:

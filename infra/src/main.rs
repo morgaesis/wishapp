@@ -5,7 +5,7 @@ use constructs::Construct;
 
 // SECURITY WARNING: AdministratorAccess provides excessive privileges
 // Consider granular permissions instead of full admin access
-// TODO: Replace with least-privilege policy for specific deployment needs
+
 
 /// Properties required for configuring the Wishapp infrastructure stack
 struct WishappStackProps {
@@ -168,7 +168,7 @@ impl WishappStack {
 /// Entry point for the CDK application
 /// 
 /// Creates and synthesizes the Wishapp infrastructure stack.
-/// TODO: Replace hardcoded values with environment variables or command-line arguments
+
 /// Initialize and validate environment configuration
 /// List of supported AWS regions for this application
 const SUPPORTED_REGIONS: &[&str] = &[
