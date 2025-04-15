@@ -7,12 +7,24 @@ use constructs::Construct;
 // Consider granular permissions instead of full admin access
 // TODO: Replace with least-privilege policy for specific deployment needs
 
+/// Properties required for configuring the Wishapp infrastructure stack
 struct WishappStackProps {
+    /// GitHub organization name where the repository is hosted
     github_org: String,
+    /// Name of the GitHub repository
     github_repo: String,
 }
 
 impl WishappStackProps {
+    /// Creates a new WishappStackProps instance
+    /// 
+    /// # Arguments
+    /// * `github_org` - GitHub organization name (e.g., "morgaesis")
+    /// * `github_repo` - GitHub repository name (e.g., "wishapp")
+    /// 
+    /// # Note
+    /// These values should ideally be configured through environment variables
+    /// or configuration files rather than being hardcoded in main()
     fn new(github_org: &str, github_repo: &str) -> Self {
         WishappStackProps {
             github_org: github_org.to_string(),
