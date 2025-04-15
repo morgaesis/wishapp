@@ -149,16 +149,42 @@ impl WishappStack {
 /// 
 /// Creates and synthesizes the Wishapp infrastructure stack.
 /// TODO: Replace hardcoded values with environment variables or command-line arguments
+/// Initialize and validate environment configuration
+fn get_config() -> Result<(String, String), Box<dyn std::error::Error>> {
+    let github_org = std::env::var("GITHUB_ORG")
+        .map_err(|_| "GITHUB_ORG environment variable is required")?;
+    let github_repo = std::env::var("GITHUB_REPO")
+        .map_err(|_| "GITHUB_REPO environment variable is required")?;
+    
+    // Validate organization name format
+    if !github_org.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err("GITHUB_ORG must contain only alphanumeric characters and hyphens".into());
+    }
+    
+    // Validate repository name format
+    if !github_repo.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err("GITHUB_REPO must contain only alphanumeric characters and hyphens".into());
+    }
+    
+    Ok((github_org, github_repo))
+}
+
 fn main() {
     let app = App::new();
+    
+    // Get and validate configuration
+    let (github_org, github_repo) = match get_config() {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("Configuration error: {}", e);
+            std::process::exit(1);
+        }
+    };
+    
     WishappStack::new(
         &app,
         "WishappStack",
-        // These values should be configurable through environment variables
-        WishappStackProps::new(
-    &std::env::var("GITHUB_ORG").unwrap_or_else(|_| "default_org".to_string()),
-    &std::env::var("GITHUB_REPO").unwrap_or_else(|_| "default_repo".to_string())
-)
+        WishappStackProps::new(&github_org, &github_repo)
     );
     app.synth();
 }
