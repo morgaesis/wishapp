@@ -5,8 +5,8 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "lint": "eslint 'src/**/*.ts'",
-    "format": "prettier --write 'src/**/*.ts'"
+    "lint": "eslint '{bin,lib,test}/**/*.ts'",
+    "format": "prettier --write '{bin,lib,test}/**/*.ts'"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
