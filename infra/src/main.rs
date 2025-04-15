@@ -170,7 +170,35 @@ impl WishappStack {
 /// Creates and synthesizes the Wishapp infrastructure stack.
 /// TODO: Replace hardcoded values with environment variables or command-line arguments
 /// Initialize and validate environment configuration
-fn get_config() -> Result<(String, String), Box<dyn std::error::Error>> {
+/// List of supported AWS regions for this application
+const SUPPORTED_REGIONS: &[&str] = &[
+    "us-east-1",    // N. Virginia
+    "us-east-2",    // Ohio
+    "us-west-1",    // N. California
+    "us-west-2",    // Oregon
+    "eu-west-1",    // Ireland
+    "eu-central-1", // Frankfurt
+];
+
+/// Validates the AWS region from environment variable
+fn validate_region() -> Result<String, Box<dyn std::error::Error>> {
+    let region = std::env::var("AWS_REGION")
+        .or_else(|_| std::env::var("AWS_DEFAULT_REGION"))
+        .map_err(|_| "AWS_REGION or AWS_DEFAULT_REGION environment variable is required")?;
+
+    if !SUPPORTED_REGIONS.contains(&region.as_str()) {
+        return Err(format!(
+            "Unsupported AWS region: {}. Supported regions are: {}", 
+            region,
+            SUPPORTED_REGIONS.join(", ")
+        ).into());
+    }
+
+    Ok(region)
+}
+
+/// Get and validate configuration from environment variables
+fn get_config() -> Result<(String, String, String), Box<dyn std::error::Error>> {
     let github_org = std::env::var("GITHUB_ORG")
         .map_err(|_| "GITHUB_ORG environment variable is required")?;
     let github_repo = std::env::var("GITHUB_REPO")
@@ -185,8 +213,11 @@ fn get_config() -> Result<(String, String), Box<dyn std::error::Error>> {
     if !github_repo.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Err("GITHUB_REPO must contain only alphanumeric characters and hyphens".into());
     }
+
+    // Validate AWS region
+    let region = validate_region()?;
     
-    Ok((github_org, github_repo))
+    Ok((github_org, github_repo, region))
 }
 
 fn main() {
