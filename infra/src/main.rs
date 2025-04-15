@@ -3,6 +3,10 @@ use aws_cdk_lib::aws_iam::{Role, ServicePrincipal, PolicyStatement, FederatedPri
 use aws_cdk_lib::aws_iam::OidcProvider;
 use constructs::Construct;
 
+// SECURITY WARNING: AdministratorAccess provides excessive privileges
+// Consider granular permissions instead of full admin access
+// TODO: Replace with least-privilege policy for specific deployment needs
+
 struct WishappStackProps {
     github_org: String,
     github_repo: String,
