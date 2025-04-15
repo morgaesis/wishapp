@@ -81,23 +81,35 @@ impl WishappStack {
                     "sts:AssumeRoleWithWebIdentity".to_string()
                 ),
                 description: Some("Role for GitHub Actions to deploy WishApp".to_string()),
+                // Set maximum session duration to 1 hour (3600 seconds)
+                // This limits the time window during which temporary credentials are valid
                 max_session_duration: Some(std::time::Duration::from_secs(3600)),
                 ..Default::default()
             }
         );
 
-        // Add permissions
+        // TODO: Replace AdministratorAccess with specific permissions
+        // Current permissions are overly permissive. Should be replaced with:
+        // - S3 access for static assets
+        // - DynamoDB access for application data
+        // - CloudFront permissions for CDN management
+        // - Lambda permissions for serverless functions
         deploy_role.add_managed_policy(ManagedPolicy::from_aws_managed_policy_name("AdministratorAccess"));
 
         Self { stack }
     }
 }
 
+/// Entry point for the CDK application
+/// 
+/// Creates and synthesizes the Wishapp infrastructure stack.
+/// TODO: Replace hardcoded values with environment variables or command-line arguments
 fn main() {
     let app = App::new();
     WishappStack::new(
         &app,
         "WishappStack",
+        // These values should be configurable through environment variables
         WishappStackProps::new("morgaesis", "wishapp")
     );
     app.synth();
