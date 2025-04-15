@@ -33,12 +33,24 @@ impl WishappStackProps {
     }
 }
 
+/// Main infrastructure stack for the Wishapp application
+/// 
+/// This stack creates the necessary AWS resources for GitHub Actions deployments:
+/// - OIDC provider configuration for secure GitHub Actions authentication
+/// - IAM role with appropriate permissions for deployments
 struct WishappStack {
     stack: Stack,
 }
 
 impl WishappStack {
+    /// Creates a new WishappStack instance with GitHub Actions deployment configuration
+    /// 
+    /// # Arguments
+    /// * `scope` - The CDK app scope
+    /// * `id` - Unique identifier for this stack
+    /// * `props` - Configuration properties for the stack
     fn new(scope: &Construct, id: &str, props: WishappStackProps) -> Self {
+        // Initialize the CDK stack with default properties
         let stack = Stack::new(scope, id, &StackProps::default());
         
         // Create OIDC (OpenID Connect) provider for GitHub Actions
