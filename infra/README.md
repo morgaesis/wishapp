@@ -1,36 +1,14 @@
-# WishApp Infrastructure
+# Welcome to your CDK TypeScript project
 
-This directory contains AWS CDK code for provisioning WishApp's cloud infrastructure.
+This is a blank project for CDK development with TypeScript.
 
-## Setup
-1. Install AWS CDK for Rust: Follow the instructions at https://github.com/aws/aws-cdk-rust
-2. Set up environment variables:
-   - `AWS_ACCESS_KEY_ID`: Your AWS access key ID.
-   - `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key.
-   - `AWS_REGION`: The AWS region to deploy to.
-3. Deploy: `cargo run --bin deploy`
+The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
-## Key Components
-- GitHub OIDC integration for secure deployments
-- IAM roles with least-privilege permissions
-- Infrastructure-as-code using AWS CDK (Rust)
+## Useful commands
 
-## Infrastructure Components
-- ECS Fargate cluster for containerized application deployment
-- Application Load Balancer for traffic distribution
-- ECR repository for container images
-- CloudWatch for logging and monitoring
-- VPC with public and private subnets
-- Security groups with least-privilege access
-
-## Deployment Workflow
-1. GitHub Actions authenticates via OIDC using `.github/workflows/deploy.yml`
-2. Assumes IAM role with deployment permissions
-3. Builds and pushes container image to ECR
-4. Updates ECS service with new image
-5. Validates deployment health
-
-Required repository secrets:
-- `AWS_ROLE_ARN`: ARN of the IAM role for GitHub Actions
-- `AWS_REGION`: AWS region for deployment
-- `ECR_REPOSITORY`: Name of the ECR repository
+* `npm run build`   compile typescript to js
+* `npm run watch`   watch for changes and compile
+* `npm run test`    perform the jest unit tests
+* `npx cdk deploy`  deploy this stack to your default AWS account/region
+* `npx cdk diff`    compare deployed stack with current state
+* `npx cdk synth`   emits the synthesized CloudFormation template
