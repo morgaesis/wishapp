@@ -1,4 +1,4 @@
-name: AWS Deployment
+name: AWS CDK Deployment
 on:
   push:
     branches: [main]
@@ -8,6 +8,10 @@ on:
 permissions:
   id-token: write
   contents: read
+
+env:
+  GITHUB_ORG: ${{ github.repository_owner }}
+  GITHUB_REPO: ${{ github.event.repository.name }}
 
 jobs:
   deploy:
@@ -26,20 +30,30 @@ jobs:
 
       
 
-      - uses: actions/cache@v3
+      
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: cargo build --release
+        working-directory: infra
+        run: npm ci
 
-      - name: Deploy to AWS
+      - name: Build infrastructure
+        working-directory: infra
+        run: npm run build
+
+      - name: Deploy infrastructure
+        working-directory: infra
         run: |
-          # Add your deployment commands here
-          echo "Deploying to AWS..."
+          npx cdk deploy --require-approval never
+          echo "Infrastructure deployed successfully"
+
+      - name: Output deployment details
+        run: |
+          echo "Deployment completed at $(date)"
+          echo "GitHub Org: $GITHUB_ORG"
+          echo "GitHub Repo: $GITHUB_REPO"
