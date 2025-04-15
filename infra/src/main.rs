@@ -29,14 +29,19 @@ impl WishappStack {
     fn new(scope: &Construct, id: &str, props: WishappStackProps) -> Self {
         let stack = Stack::new(scope, id, &StackProps::default());
         
-        // Create OIDC provider
+        // Create OIDC (OpenID Connect) provider for GitHub Actions
+        // This enables secure authentication between GitHub Actions and AWS
+        // without storing long-lived credentials
         let oidc_provider = OidcProvider::from_open_id_connect_provider_arn(
             &stack,
             "GitHubOIDCProvider",
             &format!("arn:aws:iam::{}:oidc-provider/token.actions.githubusercontent.com", stack.account())
         );
 
-        // Create deployment role
+        // Create deployment role with GitHub OIDC trust relationship
+        // This role can only be assumed by GitHub Actions workflows running on:
+        // 1. Pull requests in the specified repository
+        // 2. Push events to the main branch
         let deploy_role = Role::new(
             &stack,
             "GitHubDeployRole",
