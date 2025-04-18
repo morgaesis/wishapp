@@ -2,9 +2,9 @@
 
 ## Architecture Issues
 1. **Code Organization**:
-   - Duplicate routing logic in main.rs and lib.rs
-   - Unclear separation between library and binary
-   - Consider moving all routing to lib.rs and keep main.rs minimal
+   - [x] Resolved duplicate routing logic between main.rs/lib.rs
+   - [x] Established clear separation between library and binary
+   - [x] Moved all routing to lib.rs with minimal main.rs
 
 2. **Storage**:
    - Using in-memory storage (WISHLISTS static) not suitable for production
@@ -23,9 +23,10 @@
    - Structured logging would help debugging
 
 3. **Documentation**:
-   - Missing doc comments on most functions/types
-   - Add module-level documentation
-   - Example usage would help
+   - [x] Added module-level documentation
+   - [x] Added function documentation for routing
+   - [ ] Still needed: Example usage docs
+   - [ ] Still needed: More function/type docs
 
 ## Testing Improvements
 1. **Unit Tests**:
