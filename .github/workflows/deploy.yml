@@ -26,7 +26,6 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        working-directory: infra
         run: npm ci
 
       - name: Build and test
