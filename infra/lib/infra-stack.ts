@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 
 /**
@@ -117,5 +118,10 @@ export class InfraStack extends cdk.Stack {
         ],
       })
     );
+
+    // Example SQS Queue - For test purposes
+    new sqs.Queue(this, 'ExampleQueue', {
+      visibilityTimeout: cdk.Duration.seconds(300)
+    });
   }
 }
