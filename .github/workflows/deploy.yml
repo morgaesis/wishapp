@@ -19,19 +19,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          # SECURITY: Ensure role has least-privilege permissions
-          # WARNING: AdministratorAccess policy should NEVER be used
-          # TODO: Add aws-region input validation
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      
-
-      
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -42,9 +29,17 @@ jobs:
         working-directory: infra
         run: npm ci
 
-      - name: Build infrastructure
+      - name: Build and test
         working-directory: infra
-        run: npm run build
+        run: |
+          npm run build
+          npm test
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Deploy infrastructure
         working-directory: infra
