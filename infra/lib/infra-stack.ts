@@ -123,5 +123,11 @@ export class InfraStack extends cdk.Stack {
     new sqs.Queue(this, 'ExampleQueue', {
       visibilityTimeout: cdk.Duration.seconds(300)
     });
+
+    // Export the OIDC role ARN for GitHub Actions
+    new cdk.CfnOutput(this, 'GitHubOidcRoleArn', {
+      value: deployRole.roleArn,
+      exportName: 'GitHubOidcRoleArn'
+    });
   }
 }
