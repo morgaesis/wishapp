@@ -18,6 +18,7 @@ This project contains the AWS infrastructure for WishApp, deployed using AWS CDK
 ## Environment Variables
 
 Required for deployment:
+
 ```bash
 export GITHUB_ORG=your-github-org
 export GITHUB_REPO=your-repo-name
@@ -45,6 +46,7 @@ npm test
 ## Lambda Configuration
 
 The infrastructure includes:
+
 - API Gateway fronting Lambda functions
 - Auto-scaling Lambda functions
 - Environment variables for Lambda configuration
@@ -53,6 +55,7 @@ The infrastructure includes:
 ## GitHub Actions Integration
 
 The stack creates:
+
 - OIDC provider for GitHub Actions
 - IAM role for deployments
 - Limited permissions scoped to only required resources
@@ -60,6 +63,7 @@ The stack creates:
 ## Maintenance
 
 To update deployed stack:
+
 ```bash
 # After making changes
 npm run build
@@ -69,6 +73,7 @@ npx cdk deploy
 ## Cleanup
 
 To delete all resources:
+
 ```bash
 npx cdk destroy
 ```
