@@ -2,8 +2,8 @@ name: AWS CDK Deployment
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  # pull_request:
+  #   branches: [main]
 
 permissions:
   id-token: write
