@@ -14,33 +14,30 @@
 - **Prod**: Production environment (bootstrapped from root account)
 
 ### Bootstrap Commands
-Run these from your **root account context**:
+Run these authenticated to each **target account** (Dev/Prod):
 
 ```bash
-# Set variables (modify as needed)
-: "${DEV_ACCOUNT_ID:=$(AWS_PROFILE=wishapp-dev aws sts get-caller-identity --query Account --output text)}"
-: "${ROOT_ACCOUNT_ID:=$(aws sts get-caller-identity --query Account --output text)}"
-: "${AWS_REGION:=us-east-1}"
-GITHUB_ORG=morgaesis 
-GITHUB_REPO=wishapp
+# First authenticate to target account (Dev/Prod)
+export AWS_PROFILE=target-account-admin  # Dev or Prod admin credentials
 
-# Bootstrap DEV account
-npx cdk bootstrap "aws://${DEV_ACCOUNT_ID}/${AWS_REGION}" \
-  --trust "${ROOT_ACCOUNT_ID}" \
-  --cloudformation-execution-policies "AdministratorAccess" \
-  -c githubRepo="${GITHUB_ORG}/${GITHUB_REPO}"
+# Get target account ID
+TARGET_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
-# Bootstrap PROD account (same pattern)
-npx cdk bootstrap "aws://${PROD_ACCOUNT_ID}/${AWS_REGION}" \
-  --trust "${ROOT_ACCOUNT_ID}" \
-  -c githubRepo="${GITHUB_ORG}/${GITHUB_REPO}"
+# Set your root account ID (replace 123456789012)
+ROOT_ACCOUNT_ID=123456789012
+
+# Bootstrap target account
+npx cdk bootstrap aws://${TARGET_ACCOUNT_ID}/${AWS_REGION} \
+  --trust ${ROOT_ACCOUNT_ID} \
+  --cloudformation-execution-policies AdministratorAccess \
+  -c githubRepo="morgaesis/wishapp"
 ```
 
 Key notes:
-- Uses shell parameter expansion for default values
-- Explicitly sets githubRepo context
-- Quotes all variables to handle spaces/special characters
-- Sets AWS_REGION default if not specified
+- Must run authenticated to target account (Dev/Prod)
+- --trust specifies root account ID
+- githubRepo must match your GitHub org/repo
+- Set AWS_REGION if not in your profile
 
 ### Deployment Contexts
 - **Local Development**:
