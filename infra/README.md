@@ -58,12 +58,45 @@ npx cdk synth
 AWS_PROFILE=dev npx cdk deploy
 ```
 
-## Implementation Details
-- **PR Isolation**: `pr-{number}-` prefixed stacks with auto-cleanup
-- **Auth**: GitHub OIDC with zero secrets
-- **IAM**: Least-privilege roles with PR/prod separation  
-- **Cost Control**: $10 budget alerts for PR environments
-- **CI/CD**: GitHub Actions with:
-  - PR creation/update triggers deployment
-  - PR closure triggers destruction
-  - Main branch pushes deploy to production
+## Deployment Flow
+
+### 1. Manual Setup (Root Account)
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+graph TD
+    A[Root] --> B[Create OIDC Provider]
+    A --> C[Create github-actions Role]
+    C -->|Trust Policy| D[Restrict to GitHub Repo]
+    C -->|Permissions| E[PowerUserAccess]
+    
+``` 
+Run once per account:
+```bash
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+```
+
+### 2. PR Deployment
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+graph LR
+    PR[PR Opened] --> B[Deploy PR Stack]
+    B --> C[prDuring-PR Resources]
+    PR --> D[Run Tests]
+    E[PR Closed] --> F[Destroy Stack]
+```
+- Creates isolated `pr-*` resources
+- Auto-destroys when PR closes
+
+### 3. Production Deployment
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+graph LR
+    Main[Push to Main] --> B[Run Tests]
+    B --> C[Deploy Prod Stack]
+    C --> D[Rollout Verification]
+```
+- Deploys to production account
+- Requires main branch push

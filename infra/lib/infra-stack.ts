@@ -28,6 +28,12 @@ export class InfraStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: WishappStackProps) {
     super(scope, id, props);
 
+    // Validate deployment account
+    const currentAccount = cdk.Stack.of(this).account;
+    if (!currentAccount.startsWith('12345')) { // Replace with your dev account prefix
+      throw new Error(`Deployments only allowed to development accounts`);
+    }
+
     // Single OIDC provider for all environments
     const oidcProvider = new iam.OpenIdConnectProvider(this, 'GitHubOIDCProvider', {
       url: 'https://token.actions.githubusercontent.com',
