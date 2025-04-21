@@ -1,6 +1,10 @@
 {
   "name": "infra",
   "version": "0.1.0",
+  "engines": {
+    "node": ">=23.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
@@ -24,5 +28,9 @@
   "dependencies": {
     "constructs": "^10.4.2",
     "resolve-cwd": "^3.0.0"
+  },
+  "volta": {
+    "node": "22.14.0",
+    "npm": "11.3.0"
   }
 }
