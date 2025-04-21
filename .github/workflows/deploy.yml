@@ -16,12 +16,9 @@ env:
 defaults:
   run:
     working-directory: infra/
-  
-env:
-  NODE_PATH: ${{ github.workspace }}/node_modules
 
 jobs:
-  deploy:
+  qa:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,33 +31,30 @@ jobs:
           cache-dependency-path: infra/package-lock.json
 
       - name: Install all dependencies
-        run: |
-          # Install root dependencies
-          npm ci
-          
-          # Install infra dependencies with explicit path resolution
-          cd infra
-          npm ci
-          cd ..
-          
-          # Verify module resolution
-          echo "Root node_modules: $(npm root)"
-          echo "Infra node_modules: $(cd infra && npm root)"
-          echo "NODE_PATH: $NODE_PATH"
+        run: npm ci
 
-      - name: Debug environment
+      - name: Build
         run: |
-          echo "Node version: $(node --version)"
-          echo "NPM version: $(npm --version)"
-          echo "Current directory: $(pwd)"
-          echo "Environment variables:"
-          printenv
-          
+          npm run test
+
       - name: Test
-        run: |
-          cd infra
-          npx ts-jest config:init
-          npm test -- --testTimeout=30000
+        run: npm test
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [qa]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: "npm"
+          node-version-file: infra/package.json
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install all dependencies
+        run: npm ci
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
