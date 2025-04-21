@@ -33,18 +33,20 @@ jobs:
           node-version-file: infra/package.json
           cache-dependency-path: infra/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install root dependencies
+      - name: Install all dependencies
         run: |
-          pwd
-          ls -la
+          # Install root dependencies
           npm ci
-          echo "NODE_PATH: $NODE_PATH"
-          echo "npm root: $(npm root)"
-          echo "npm root -g: $(npm root -g)"
+          
+          # Install infra dependencies with explicit path resolution
           cd infra
+          npm ci
+          cd ..
+          
+          # Verify module resolution
+          echo "Root node_modules: $(npm root)"
+          echo "Infra node_modules: $(cd infra && npm root)"
+          echo "NODE_PATH: $NODE_PATH"
 
       - name: Test
         run: npm test
