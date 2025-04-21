@@ -49,7 +49,10 @@ jobs:
           echo "NODE_PATH: $NODE_PATH"
 
       - name: Test
-        run: npm test
+        run: |
+          cd infra
+          npx ts-jest config:init
+          npm test
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
