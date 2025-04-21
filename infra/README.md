@@ -15,19 +15,32 @@
 
 ### Bootstrap Commands
 Run these from your **root account context**:
+
 ```bash
-# Verify current account context
-aws sts get-caller-identity
+# Set variables (modify as needed)
+: "${DEV_ACCOUNT_ID:=$(AWS_PROFILE=wishapp-dev aws sts get-caller-identity --query Account --output text)}"
+: "${ROOT_ACCOUNT_ID:=$(aws sts get-caller-identity --query Account --output text)}"
+: "${AWS_REGION:=us-east-1}"
+GITHUB_ORG=morgaesis 
+GITHUB_REPO=wishapp
 
-# Bootstrap DEV account (replace variables)
-npx cdk bootstrap aws://${DEV_ACCOUNT_ID}/${AWS_REGION} \
-  --trust $(aws sts get-caller-identity --query Account --output text) \
-  --cloudformation-execution-policies AdministratorAccess
+# Bootstrap DEV account
+npx cdk bootstrap "aws://${DEV_ACCOUNT_ID}/${AWS_REGION}" \
+  --trust "${ROOT_ACCOUNT_ID}" \
+  --cloudformation-execution-policies "AdministratorAccess" \
+  -c githubRepo="${GITHUB_ORG}/${GITHUB_REPO}"
 
-# Bootstrap PROD account (replace variables)
-npx cdk bootstrap aws://${PROD_ACCOUNT_ID}/${AWS_REGION} \
-  --trust $(aws sts get-caller-identity --query Account --output text)
+# Bootstrap PROD account (same pattern)
+npx cdk bootstrap "aws://${PROD_ACCOUNT_ID}/${AWS_REGION}" \
+  --trust "${ROOT_ACCOUNT_ID}" \
+  -c githubRepo="${GITHUB_ORG}/${GITHUB_REPO}"
 ```
+
+Key notes:
+- Uses shell parameter expansion for default values
+- Explicitly sets githubRepo context
+- Quotes all variables to handle spaces/special characters
+- Sets AWS_REGION default if not specified
 
 ### Deployment Contexts
 - **Local Development**:
