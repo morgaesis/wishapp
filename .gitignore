@@ -17,3 +17,5 @@ ehthumbs.db
 Thumbs.db
 *.out
 *.log
+node_modules/
+infra/node_modules/
