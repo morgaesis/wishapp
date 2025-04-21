@@ -34,7 +34,6 @@ jobs:
         run: npm ci
 
       - name: Build and test
-        working-directory: infra
         run: |
           npm run build
           npm test
@@ -46,7 +45,6 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Deploy infrastructure
-        working-directory: infra
         run: |
           npx cdk deploy --require-approval never
           echo "Infrastructure deployed successfully"
