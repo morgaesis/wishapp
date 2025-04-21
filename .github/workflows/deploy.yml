@@ -16,6 +16,9 @@ env:
 defaults:
   run:
     working-directory: infra/
+  
+env:
+  NODE_PATH: ${{ github.workspace }}/node_modules
 
 jobs:
   deploy:
@@ -32,6 +35,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install root dependencies
+        run: |
+          cd ..
+          npm ci
+          cd infra
 
       - name: Test
         run: npm test
