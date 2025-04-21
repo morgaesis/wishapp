@@ -9,13 +9,13 @@ on:
 permissions:
   id-token: write
   contents: read
+  pull-requests: write
 
 env:
   GITHUB_ORG: ${{ github.repository_owner }}
   GITHUB_REPO: ${{ github.event.repository.name }}
   IS_PR: ${{ github.event_name == 'pull_request' }}
   PR_NUMBER: ${{ github.event.pull_request.number || '' }}
-  ENV_SUFFIX: ${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }}
 
 defaults:
   run:
@@ -27,19 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          cache: "npm"
           node-version-file: infra/package.json
-          cache-dependency-path: infra/package-lock.json
-
-      - name: Install all dependencies
-        run: npm ci
-
-      - name: Test
-        run: npm test
+      - run: npm ci
+      - run: npm test
 
   deploy:
     if: github.event.action != 'closed'
@@ -47,57 +39,79 @@ jobs:
     needs: [qa]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          cache: "npm"
-          node-version-file: infra/package.json
-          cache-dependency-path: infra/package-lock.json
-
-      - name: Install all dependencies
-        run: npm ci
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubOIDCDeployRole
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-session-name: github-${{ github.run_id }}
-          role-duration-seconds: 3600
-
-      - name: Deploy infrastructure
-        run: |
-          if [ "$IS_PR" = "true" ]; then
-            npx cdk deploy -c prNumber=$PR_NUMBER --require-approval never
-            echo "PR Deployment #$PR_NUMBER complete"
-          else
-            npx cdk deploy --require-approval never
-            echo "Production deployment complete"
-          fi
-
-      - name: Output deployment details
-        run: |
-          echo "Deployment completed at $(date)"
-          echo "GitHub Org: $GITHUB_ORG"
-          echo "GitHub Repo: $GITHUB_REPO"
-
-  cleanup:
-    if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: infra/package.json
-      - run: npm ci --prefix infra
+      - run: npm ci
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubOIDCDeployRole
           aws-region: ${{ secrets.AWS_REGION }}
       - run: |
-          npx cdk destroy -c prNumber=${{ github.event.pull_request.number }} --force
-          echo "PR #${{ github.event.pull_request.number }} resources cleaned up"
+          if [ "$IS_PR" = "true" ]; then
+            npx cdk deploy -c prNumber=$PR_NUMBER --require-approval never
+          else
+            npx cdk deploy --require-approval never
+          fi
+      - name: Update PR comment
+        if: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = {
+              body: `[SUCCESS] CDK Deployment Complete for PR #${{ github.event.pull_request.number }}`,
+              issue_number: context.issue.number
+            };
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: context.issue.number
+            });
+            const prevComment = comments.find(c => 
+              c.user.login === 'github-actions[bot]' &&
+              c.body.includes('[SUCCESS] CDK Deployment Complete')
+            );
+            if (prevComment) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: prevComment.id,
+                body: comment.body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                ...comment
+              });
+            }
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: infra/package.json
+      - run: npm ci
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubOIDCDeployRole
+          aws-region: ${{ secrets.AWS_REGION }}
+      - run: npx cdk destroy -c prNumber=${{ github.event.pull_request.number }} --force
+      - name: Remove PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: context.issue.number
+            });
+            const deploymentComment = comments.find(c => 
+              c.user.login === 'github-actions[bot]' &&
+              c.body.includes('[SUCCESS] CDK Deployment Complete')
+            );
+            if (deploymentComment) {
+              await github.rest.issues.deleteComment({
+                ...context.repo,
+                comment_id: deploymentComment.id
+              });
+            }
