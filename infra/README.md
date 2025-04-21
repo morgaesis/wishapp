@@ -6,6 +6,28 @@
 - **Security**: GitHub OIDC with zero secrets
 - **Cost control**: $10 budget alerts for PR environments
 
+## Account Contexts
+### Key Accounts
+| Account Type       | Purpose                         | Bootstrap From |
+|--------------------|---------------------------------|----------------|
+| Root (Management)  | Organization administration     | -              |
+| Dev                | Development environments        | Root account   | 
+| Prod               | Production environment          | Root account   |
+
+### Deployment Contexts
+| Environment  | Run From            | Credentials                  |
+|--------------|---------------------|------------------------------|
+| Local Dev    | Developer machine   | AWS profile with dev access  |
+| CI/CD        | GitHub Actions      | OIDC-assumed deployment role |
+| Bootstrap    | Root account        | OrgAdmin permissions         |
+
+### Permission Requirements
+| Context        | Minimum IAM Policy               |
+|----------------|----------------------------------|
+| Local Dev      | PowerUserAccess                  |
+| CI/CD Pipeline | GitHubOIDCDeployRole (custom)    |
+| Bootstrap      | Organization Administrator       |
+
 ## Deployment Flow
 ```mermaid
 %%{init: {'theme':'neutral'}}%%
