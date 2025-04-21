@@ -1,79 +1,36 @@
-# WishApp Infrastructure (AWS CDK)
+# WishApp Deployment
 
-This project contains the AWS infrastructure for WishApp, deployed using AWS CDK with TypeScript.
+## Deployment Goals
+- **Main branch**: Auto-deploy cargo-lambda app to production
+- **PR branches**: Feature deployments protected by Cognito auth
+- **Infra changes**: Manual deployments via `cdk deploy`
 
-## Architecture Overview
-
-- **Frontend**: S3 + CloudFront
-- **Backend**: AWS Lambda functions
-- **Database**: DynamoDB
-- **CI/CD**: GitHub Actions with OIDC authentication
-
-## Deployment Requirements
-
-1. AWS credentials configured
-2. Node.js 16+ installed
-3. AWS CDK installed (`npm install -g aws-cdk`)
-
-## Environment Variables
-
-Required for deployment:
-
-```bash
-export GITHUB_ORG=your-github-org
-export GITHUB_REPO=your-repo-name
+## Architecture
+```mermaid
+graph TD
+    PR[PR Branch] -->|Deploy| Preview[Preview Environment]
+    Main[Main Branch] -->|Deploy| Prod[Production]
+    User -->|Auth| Cognito --> Preview
+    Preview --> Lambda --> DynamoDB
+    Prod --> Lambda --> DynamoDB
 ```
 
-## Deployment Commands
-
+## Key Commands
 ```bash
-# Install dependencies
-npm install
+# Development workflow:
+npm run build   # Compile TypeScript
+npm test        # Run tests
+npx cdk deploy  # Deploy changes
 
-# Build the project
+# Production deploy (via CI):
+npm ci
 npm run build
-
-# Synthesize CloudFormation template
-npx cdk synth
-
-# Deploy to AWS
-npx cdk deploy
-
-# Run tests
-npm test
+npx cdk deploy --require-approval never
 ```
 
-## Lambda Configuration
-
-The infrastructure includes:
-
-- API Gateway fronting Lambda functions
-- Auto-scaling Lambda functions
-- Environment variables for Lambda configuration
-- Proper IAM permissions following least privilege
-
-## GitHub Actions Integration
-
-The stack creates:
-
-- OIDC provider for GitHub Actions
-- IAM role for deployments
-- Limited permissions scoped to only required resources
-
-## Maintenance
-
-To update deployed stack:
-
-```bash
-# After making changes
-npm run build
-npx cdk deploy
-```
-
-## Cleanup
-
-To delete all resources:
-
-```bash
-npx cdk destroy
-```
+## Implementation Details
+- PR deployments use branch name in resource IDs
+- Cognito auth configured via CDK
+- IAM roles follow least privilege principle
+- Monitoring via CloudWatch alarms
+- Environment config via CDK contexts
