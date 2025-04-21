@@ -28,25 +28,60 @@ export class InfraStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: WishappStackProps) {
     super(scope, id, props);
 
-    // Validate deployment account
-    const currentAccount = cdk.Stack.of(this).account;
-    if (!currentAccount.startsWith('12345')) { // Replace with your dev account prefix
-      throw new Error(`Deployments only allowed to development accounts`);
+    // Validate required context
+    const githubRepo = this.node.tryGetContext('githubRepo');
+    if (!githubRepo) {
+      throw new Error('githubRepo context variable is required');
     }
 
-    // Single OIDC provider for all environments
-    const oidcProvider = new iam.OpenIdConnectProvider(this, 'GitHubOIDCProvider', {
-      url: 'https://token.actions.githubusercontent.com',
-      clientIds: ['sts.amazonaws.com'],
-      thumbprints: ['6938fd4d98bab03faadb97b34396831e3780aea1']
-    });
-
-    // Get PR context from CDK CLI
+    // Environment configuration
     const prNumber = this.node.tryGetContext('prNumber');
     const isPrEnv = !!prNumber;
-
-    // PR-aware stack naming
+    const envPrefix = isPrEnv ? `pr-${prNumber}-` : '';
     const stackSuffix = isPrEnv ? `-pr-${prNumber}` : '-prod';
+    
+    // Tag all resources for cost tracking and isolation
+    cdk.Tags.of(this).add('StackType', `wishapp${stackSuffix}`);
+    cdk.Tags.of(this).add('Environment', isPrEnv ? 'pr' : 'prod');
+    cdk.Tags.of(this).add('GitHubRepo', githubRepo);
+
+    // OIDC Provider (must exist)
+    const oidcProvider = iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
+      this,
+      'GitHubOIDCProvider',
+      `arn:aws:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`
+    );
+
+    // GitHub Actions Role with conditional permissions
+    const githubActionsRole = new iam.Role(this, 'GitHubActionsRole', {
+      assumedBy: new iam.WebIdentityPrincipal(oidcProvider.openIdConnectProviderArn, {
+        'StringLike': {
+          'token.actions.githubusercontent.com:sub': [
+            `repo:${githubRepo}:pull_request`,
+            `repo:${githubRepo}:ref:refs/heads/main`
+          ]
+        }
+      }),
+      roleName: `github-actions${stackSuffix}`,
+      maxSessionDuration: cdk.Duration.hours(1),
+      inlinePolicies: {
+        deploymentAccess: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              actions: ['cloudformation:*', 's3:*', 'iam:*'],
+              resources: ['*'],
+              conditions: {
+                'ArnEquals': {
+                  'aws:ResourceTag/StackType': `wishapp${stackSuffix}`
+                }
+              }
+            })
+          ]
+        })
+      }
+    });
+
+    // Use existing stackSuffix variable declared earlier
     
     // Deployment role with conditional trust
     const deployRole = new iam.Role(this, `GitHubDeployRole${stackSuffix}`, {
