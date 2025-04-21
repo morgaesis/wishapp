@@ -1,8 +1,0 @@
-{
-  "app": "cargo run -p wishapp-infra",
-  "context": {
-    "@aws-cdk/core:newStyleStackSynthesis": true,
-    "@aws-cdk/core:enableStackNameDuplicates": "true",
-    "aws-cdk:enableDiffNoFail": "true"
-  }
-}
