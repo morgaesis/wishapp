@@ -48,8 +48,18 @@ Key notes:
 - **CI/CD Pipeline**:
   ```bash
   # Uses OIDC credentials automatically
-  npx cdk deploy -c prNumber=$PR_NUMBER  # For PRs
-  npx cdk deploy                         # For production
+  : "${GITHUB_REPOSITORY:=morgaesis/wishapp}"  # Default if not in env
+  
+  # PR Environment
+  npx cdk deploy -c prNumber=$PR_NUMBER -c githubRepo="${GITHUB_REPOSITORY}"
+  
+  # Production Deployment  
+  npx cdk deploy -c githubRepo="${GITHUB_REPOSITORY}"
+  ```
+  
+  Note: In GitHub Actions, `${GITHUB_REPOSITORY}` is automatically available. For local testing, you can:
+  ```bash
+  export GITHUB_REPOSITORY=morgaesis/wishapp
   ```
 
 ### Required Permissions
