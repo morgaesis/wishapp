@@ -29,7 +29,7 @@ ROOT_ACCOUNT_ID=123456789012
 # Bootstrap target account
 npx cdk bootstrap aws://${TARGET_ACCOUNT_ID}/${AWS_REGION} \
   --trust ${ROOT_ACCOUNT_ID} \
-  --cloudformation-execution-policies AdministratorAccess \
+  --cloudformation-execution-policies "arn:aws:iam::aws:policy/AdministratorAccess" \
   -c githubRepo="morgaesis/wishapp"
 ```
 
