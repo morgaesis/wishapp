@@ -6,27 +6,46 @@
 - **Security**: GitHub OIDC with zero secrets
 - **Cost control**: $10 budget alerts for PR environments
 
-## Account Contexts
+## Account Setup
+
 ### Key Accounts
-| Account Type       | Purpose                         | Bootstrap From |
-|--------------------|---------------------------------|----------------|
-| Root (Management)  | Organization administration     | -              |
-| Dev                | Development environments        | Root account   | 
-| Prod               | Production environment          | Root account   |
+- **Root (Management)**: Used for organization administration and bootstrapping deployments
+- **Dev**: Development environments (bootstrapped from root account)
+- **Prod**: Production environment (bootstrapped from root account)
+
+### Bootstrap Commands
+Run these from your **root account context**:
+```bash
+# Verify current account context
+aws sts get-caller-identity
+
+# Bootstrap DEV account (replace variables)
+npx cdk bootstrap aws://${DEV_ACCOUNT_ID}/${AWS_REGION} \
+  --trust $(aws sts get-caller-identity --query Account --output text) \
+  --cloudformation-execution-policies AdministratorAccess
+
+# Bootstrap PROD account (replace variables)
+npx cdk bootstrap aws://${PROD_ACCOUNT_ID}/${AWS_REGION} \
+  --trust $(aws sts get-caller-identity --query Account --output text)
+```
 
 ### Deployment Contexts
-| Environment  | Run From            | Credentials                  |
-|--------------|---------------------|------------------------------|
-| Local Dev    | Developer machine   | AWS profile with dev access  |
-| CI/CD        | GitHub Actions      | OIDC-assumed deployment role |
-| Bootstrap    | Root account        | OrgAdmin permissions         |
+- **Local Development**:
+  ```bash
+  AWS_PROFILE=dev-admin npx cdk deploy
+  ```
 
-### Permission Requirements
-| Context        | Minimum IAM Policy               |
-|----------------|----------------------------------|
-| Local Dev      | PowerUserAccess                  |
-| CI/CD Pipeline | GitHubOIDCDeployRole (custom)    |
-| Bootstrap      | Organization Administrator       |
+- **CI/CD Pipeline**:
+  ```bash
+  # Uses OIDC credentials automatically
+  npx cdk deploy -c prNumber=$PR_NUMBER  # For PRs
+  npx cdk deploy                         # For production
+  ```
+
+### Required Permissions
+- Bootstrap: Organization Administrator in root account
+- Local Dev: PowerUserAccess in target account
+- CI/CD: Custom GitHubOIDCDeployRole in target account
 
 ## Deployment Flow
 ```mermaid
