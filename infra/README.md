@@ -62,10 +62,60 @@ Key notes:
   export GITHUB_REPOSITORY=morgaesis/wishapp
   ```
 
-### Required Permissions
-- Bootstrap: Organization Administrator in root account
-- Local Dev: PowerUserAccess in target account
-- CI/CD: Custom GitHubOIDCDeployRole in target account
+### Security Best Practices
+
+#### IAM Role Configuration
+```typescript
+new iam.Role(this, 'GitHubActionsRole', {
+  assumedBy: new iam.WebIdentityPrincipal(oidcProviderArn, {
+    'StringEquals': {
+      'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com'
+    },
+    'StringLike': {
+      'token.actions.githubusercontent.com:sub': [
+        `repo:${githubRepo}:pull_request`,
+        `repo:${githubRepo}:ref:refs/heads/main`
+      ]
+    }
+  }),
+  inlinePolicies: {
+    deploymentAccess: new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'cloudformation:Describe*',
+            'cloudformation:Get*',
+            'cloudformation:List*',
+            'cloudformation:CreateStack',
+            'cloudformation:UpdateStack',
+            'cloudformation:DeleteStack',
+            's3:PutObject',
+            's3:GetObject',
+            's3:ListBucket',
+            'iam:PassRole'
+          ],
+          resources: ['*'],
+          conditions: {
+            'StringEquals': {'aws:RequestedRegion': this.region},
+            'ArnEquals': {'aws:ResourceTag/StackType': `stack-suffix`}
+          }
+        })
+      ]
+    })
+  }
+});
+```
+
+#### Key Principles
+1. **Least Privilege**: Only grant necessary permissions
+2. **Conditions**:
+   - Restrict to specific GitHub repo
+   - Limit to target AWS region
+   - Scope via resource tags
+3. **Audit**: Regularly review IAM usage
+4. **Isolation**: Separate PR/prod environments
+5. **Rotation**: Keep OIDC provider thumbprint updated
 
 ## Deployment Flow
 ```mermaid
