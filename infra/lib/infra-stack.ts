@@ -28,34 +28,64 @@ export class InfraStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: WishappStackProps) {
     super(scope, id, props);
 
-    // Create OIDC (OpenID Connect) provider for GitHub Actions
-    // This enables secure authentication between GitHub Actions and AWS
-    // without storing long-lived credentials
-    const oidcProvider = iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
-      this,
-      "GitHubOIDCProvider",
-      `arn:aws:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`
-    );
+    // Single OIDC provider for all environments
+    const oidcProvider = new iam.OpenIdConnectProvider(this, 'GitHubOIDCProvider', {
+      url: 'https://token.actions.githubusercontent.com',
+      clientIds: ['sts.amazonaws.com'],
+      thumbprints: ['6938fd4d98bab03faadb97b34396831e3780aea1']
+    });
 
-    // Create deployment role with GitHub OIDC trust relationship
-    // This role can only be assumed by GitHub Actions workflows running on:
-    // 1. Pull requests in the specified repository
-    // 2. Push events to the main branch
-    const deployRole = new iam.Role(this, "GitHubDeployRole", {
-      assumedBy: new iam.FederatedPrincipal(
-        oidcProvider.openIdConnectProviderArn,
-        {
-          StringLike: {
-            [`token.actions.githubusercontent.com:sub`]: [
-              `repo:${props.githubOrg}/${props.githubRepo}:pull_request`,
-              `repo:${props.githubOrg}/${props.githubRepo}:ref:refs/heads/main`,
-            ],
-          },
+    // Get PR context from CDK CLI
+    const prNumber = this.node.tryGetContext('prNumber');
+    const isPrEnv = !!prNumber;
+
+    // PR-aware stack naming
+    const stackSuffix = isPrEnv ? `-pr-${prNumber}` : '-prod';
+    
+    // Deployment role with conditional trust
+    const deployRole = new iam.Role(this, `GitHubDeployRole${stackSuffix}`, {
+      assumedBy: new iam.WebIdentityPrincipal(oidcProvider.openIdConnectProviderArn, {
+        StringEquals: {
+          'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com'
         },
-        "sts:AssumeRoleWithWebIdentity"
-      ),
-      description: "Role for GitHub Actions to deploy WishApp",
-      maxSessionDuration: cdk.Duration.hours(1),
+        StringLike: {
+          'token.actions.githubusercontent.com:sub': [
+            `repo:${props.githubOrg}/${props.githubRepo}:pull_request`,
+            `repo:${props.githubOrg}/${props.githubRepo}:ref:refs/heads/main`
+          ]
+        }
+      }),
+      description: isPrEnv 
+        ? `Temporary deployment role for PR #${prNumber} (auto-cleanup)`
+        : 'Production deployment role',
+      maxSessionDuration: cdk.Duration.hours(1)
+    });
+
+    // Add required permissions to the deployment role
+    deployRole.addToPolicy(new iam.PolicyStatement({
+      actions: [
+        'sts:AssumeRole',
+        'cloudformation:*',
+        'iam:PassRole'
+      ],
+      resources: ['*'],
+      conditions: isPrEnv 
+        ? {
+            'StringEquals': {
+              'aws:RequestedRegion': [this.region],
+              'aws:PrincipalTag/PR': [prNumber]
+            }
+          }
+        : undefined
+    }));
+
+    // Create application resources with PR-aware naming
+    const resourcePrefix = isPrEnv ? `pr-${prNumber}-` : '';
+
+    // Create SQS queue with PR-aware naming
+    const queue = new sqs.Queue(this, 'WishQueue', {
+      queueName: `${resourcePrefix}wish-queue`,
+      visibilityTimeout: cdk.Duration.seconds(300)
     });
 
     // Configure IAM permissions following the principle of least privilege
