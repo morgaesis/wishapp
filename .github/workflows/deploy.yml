@@ -6,6 +6,9 @@ on:
     paths: [ 'infra/**' ]
   pull_request:
     paths: [ 'infra/**' ]
+  pull_request_target:
+    types: [closed]
+    paths: [ 'infra/**' ]
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -32,3 +35,26 @@ jobs:
       - run: cd infra && npx cdk synth
       - if: github.ref == 'refs/heads/main'
         run: cd infra && npx cdk deploy --require-approval never
+
+  cleanup:
+    if: github.event.action == 'closed'
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: npm install -g aws-cdk
+      - run: cd infra && npm install
+      - name: Destroy PR environment
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.PR_AWS_ROLE_ARN || env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: |
+          cd infra && npx cdk destroy -f \
+            -c prNumber=${{ github.event.pull_request.number }}

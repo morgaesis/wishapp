@@ -1,14 +1,23 @@
-# Welcome to your CDK TypeScript project
+# Infrastructure Deployment
 
-This is a blank project for CDK development with TypeScript.
+## Key Components
+- AWS Lambda (Rust runtime)
+- API Gateway REST API
+- Automated PR environments
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+## Workflow
+- PRs: Auto-deploy preview environments (pr-{number})
+- Main branch: Manual approval required for production
+- Closed PRs: Automatic cleanup
 
-## Useful commands
+## Development
+```sh
+npm test   # Run infrastructure tests
+npm build  # Compile CDK code
+cdk synth  # Generate CloudFormation
+```
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `npx cdk deploy`  deploy this stack to your default AWS account/region
-* `npx cdk diff`    compare deployed stack with current state
-* `npx cdk synth`   emits the synthesized CloudFormation template
+## CI/CD
+- Uses GitHub Actions with OIDC
+- Production: api.example.com
+- Previews: pr-{number}.api.example.com
