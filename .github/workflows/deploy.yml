@@ -25,13 +25,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm install && npm run build
+      
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          override: true
+
+      - name: Build lambda
+        uses: actions-rs/cargo@v1
+        with:
+          command: lambda
+          args: build --release --output-format zip
+
       - uses: actions/upload-artifact@v3
         with:
           name: lambda-build
-          path: |
-            dist/**
-            !dist/**/*.map
+          path: target/lambda/release/*.zip
           retention-days: 1
 
   deploy:
@@ -47,20 +71,9 @@ jobs:
           node-version: 18
       - run: cd infra && npm install
       - run: cd infra && npm test
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: npm install -g aws-cdk
-      - run: cd infra && npm install
 
       # PR Preview Environment
       - if: github.event_name == 'pull_request'
