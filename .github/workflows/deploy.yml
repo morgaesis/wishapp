@@ -18,7 +18,7 @@ env:
   PR_AWS_ACCOUNT_ID: ${{ secrets.PR_AWS_ACCOUNT_ID }}
   PROD_AWS_ACCOUNT_ID: ${{ secrets.PROD_AWS_ACCOUNT_ID }}
   # Shared role name across accounts
-  DEPLOYMENT_ROLE_NAME: GitHubActionsDeployment
+  DEPLOYMENT_ROLE_NAME: github-action
 
 jobs:
   test:
