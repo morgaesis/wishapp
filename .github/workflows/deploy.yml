@@ -1,15 +1,16 @@
+---
 name: Infrastructure CI/CD
 
 on:
   push:
-    branches: [ main ]
-    paths: [ 'infra/**' ]
+    branches: ["main"]
+    paths: ["infra/**"]
   pull_request:
-    types: [opened, synchronize, reopened]
-    paths: [ 'infra/**' ]
+    types: ["opened", "synchronize", "reopened"]
+    paths: ["infra/**"]
   pull_request_target:
-    types: [closed]
-    paths: [ 'infra/**' ]
+    types: ["closed"]
+    paths: ["infra/**"]
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
