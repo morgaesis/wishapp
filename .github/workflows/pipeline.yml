@@ -1,0 +1,57 @@
+---
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: ["main"]
+    paths: [infra/**, src/**]
+  pull_request:
+    paths: [infra/**, src/**]
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  DEPLOYMENT_ROLE_NAME: github-action
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: npm ci
+      - run: npm test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: lambda-artifacts
+          path: dist/
+          retention-days: 1
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: lambda-artifacts
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.DEPLOYMENT_ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: npx cdk deploy --require-approval never
