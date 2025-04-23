@@ -50,7 +50,7 @@ jobs:
         name: Deploy Preview
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: arn:aws:iam::${{ env.PR_AWS_ACCOUNT_ID }}:role/github-action
+          role-to-assume: arn:aws:iam::${{ env.PR_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-pr-${{ github.event.number }}
       - if: github.event_name == 'pull_request'
@@ -85,7 +85,7 @@ jobs:
       - name: Destroy Preview
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: arn:aws:iam::${{ env.PR_AWS_ACCOUNT_ID }}:role/github-action
+          role-to-assume: arn:aws:iam::${{ env.PR_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-cleanup-${{ github.event.pull_request.number }}
       - run: cd infra && npx cdk destroy -f -c stage=pr-${{ github.event.pull_request.number }}
