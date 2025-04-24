@@ -14,7 +14,7 @@ export class InfraStack extends cdk.Stack {
     // Lambda function
     const wishLambda = new lambda.Function(this, 'WishHandler', {
       runtime: lambda.Runtime.PROVIDED_AL2,
-      code: lambda.Code.fromAsset(props?.assetPath || '../target/lambda/wishapp'),
+      code: lambda.Code.fromAsset(props?.assetPath || '../target/lambda/wishlist_api'),
       handler: 'doesnt.matter',
     });
 
