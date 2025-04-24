@@ -50,11 +50,19 @@ jobs:
           components: rustfmt, clippy
           override: true
 
-      - name: Build lambda
-        uses: actions-rs/cargo@v1
+      - name: Install cargo-lambda
+        run: cargo install cargo-lambda
+      
+      - name: Cache cargo binaries
+        uses: actions/cache@v3
         with:
-          command: lambda
-          args: build --release --output-format zip
+          path: ~/.cargo/bin/
+          key: ${{ runner.os }}-cargo-bin-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bin-
+
+      - name: Build lambda
+        run: cargo lambda build --release --output-format zip
 
       - uses: actions/setup-node@v3
         with:
