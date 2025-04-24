@@ -30,42 +30,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Cache cargo dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          components: rustfmt, clippy
           override: true
 
-      - name: Install Zig
-        run: npm install -g @ziglang/cli
-
       - name: Install cargo-lambda
-        run: cargo install cargo-lambda
-      
-      - name: Cache cargo binaries
-        uses: actions/cache@v3
+        uses: cargo-lambda/actions@v1
         with:
-          path: ~/.cargo/bin/
-          key: ${{ runner.os }}-cargo-bin-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-bin-
+          version: latest
+          zig: true
 
-      - name: Build lambda
-        run: cargo lambda build --release --output-format zip
+      - name: Build with cargo-lambda
+        uses: cargo-lambda/actions@v1
+        with:
+          command: build
+          args: --release --output-format zip
 
       - uses: actions/setup-node@v3
         with:
