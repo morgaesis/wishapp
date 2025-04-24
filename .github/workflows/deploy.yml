@@ -50,6 +50,9 @@ jobs:
           components: rustfmt, clippy
           override: true
 
+      - name: Install Zig
+        run: npm install -g @ziglang/cli
+
       - name: Install cargo-lambda
         run: cargo install cargo-lambda
       
