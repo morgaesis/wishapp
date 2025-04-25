@@ -1,5 +1,6 @@
 name: Infrastructure CI/CD
 
+# Workflow triggers (yamllint disable rule:truthy for GitHub Actions syntax)
 on:
   push:
     branches: ["main"]
@@ -20,7 +21,6 @@ env:
   DEPLOYMENT_ROLE_NAME: github-action
 
 jobs:
-  
 
   deploy:
     runs-on: ubuntu-latest
@@ -29,10 +29,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        
+
       - name: Install Zig toolchain
         uses: korandoru/setup-zig@v1
         with:
@@ -100,11 +100,9 @@ jobs:
           role-to-assume: arn:aws:iam::${{ env.PR_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-cleanup-${{ github.event.pull_request.number }}
-      - run: # Ensure we have proper AWS credentials first
-echo "Destroying PR environment pr-${{ github.event.pull_request.number }}"
-cd infra && \
-(npx cdk destroy -f -c stage=pr-${{ github.event.pull_request.number }} || \
- echo "::warning::Failed to destroy environment, it may need manual cleanup")
-# Always exit successfully since failed cleanup shouldn't fail the workflow
-exit 0
-
+      - run: |
+          echo "Destroying PR environment pr-${{ github.event.pull_request.number }}"
+          cd infra
+          npx cdk destroy -f -c stage=pr-${{ github.event.pull_request.number }} || \
+            echo "::warning::Failed to destroy environment, it may need manual cleanup"
+          exit 0
