@@ -1,0 +1,15 @@
+extends: default
+
+rules:
+  line-length: disable
+  document-start: disable
+  truthy:
+    ignore: 
+      - "on"
+      - "jobs.*.steps[*].with.*"
+      - "env.*"
+
+ignore: |
+  node_modules/
+  **/node_modules/*
+  .github/workflows/ci.yml
