@@ -69,8 +69,8 @@ jobs:
             -c stage=pr-${{ github.event.number }} \
             --outputs-file outputs.json \
             --change-set-name pr-${{ github.event.number }}-$(date +%s) \
-            || (echo "::warning::Deployment failed, attempting cleanup..." &amp;&amp; \
-                npx cdk destroy -f -c stage=pr-${{ github.event.number }} &amp;&amp; \
+            || (echo "::warning::Deployment failed, attempting cleanup..." && \
+                npx cdk destroy -f -c stage=pr-${{ github.event.number }} && \
                 exit 1)
 
       # Production Deploy
