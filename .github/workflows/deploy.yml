@@ -21,7 +21,6 @@ env:
   DEPLOYMENT_ROLE_NAME: github-action
 
 jobs:
-
   deploy:
     runs-on: ubuntu-latest
     permissions:
