@@ -65,9 +65,9 @@ jobs:
         run: |
           cd infra && npx cdk deploy \
             --require-approval never \
+            --exclusively \
             -c stage=pr-${{ github.event.number }} \
             --outputs-file outputs.json \
-            --change-set-name pr-${{ github.event.number }}-$(date +%s) \
             || (echo "::warning::Deployment failed, attempting cleanup..." && \
                 npx cdk destroy -f -c stage=pr-${{ github.event.number }} && \
                 exit 1)
@@ -81,7 +81,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-prod-deploy
       - if: github.ref == 'refs/heads/main'
-        run: cd infra && npx cdk deploy --require-approval never -c stage=prod
+        run: cd infra && npx cdk deploy --require-approval never --exclusively -c stage=prod
 
   cleanup:
     if: github.event.action == 'closed'
