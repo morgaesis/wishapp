@@ -1,5 +1,6 @@
 name: Infrastructure CI/CD
 
+# Workflow triggers (yamllint disable rule:truthy for GitHub Actions syntax)
 on:
   push:
     branches: ["main"]
@@ -20,19 +21,59 @@ env:
   DEPLOYMENT_ROLE_NAME: github-action
 
 jobs:
-  
-
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      aws-creds: ${{ steps.assume-role.outputs.aws-creds }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: aws-actions/configure-aws-credentials@v2
+        id: assume-role
+        with:
+          role-to-assume: arn:aws:iam::${{ github.event_name == 'pull_request' && env.PR_AWS_ACCOUNT_ID || env.PROD_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
+          role-session-name: ${{ github.event_name == 'pull_request' && format('github-pr-{0}', github.event.number) || 'github-prod-deploy' }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: set-outputs
+        run: |
+          echo "aws-creds=$(jq -n \
+            --arg access_key_id \"$AWS_ACCESS_KEY_ID\" \
+            --arg secret_access_key \"$AWS_SECRET_ACCESS_KEY\" \
+            --arg session_token \"$AWS_SESSION_TOKEN\" \
+            '{access_key_id: $access_key_id, secret_access_key: $secret_access_key, session_token: $session_token}' | base64)" >> $GITHUB_OUTPUT
+  jobs:
   deploy:
+    needs: setup
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
       - uses: actions/checkout@v4
-      
+      - uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ fromJSON(base64decode(needs.setup.outputs.aws-creds)).access_key_id }}
+          aws-secret-access-key: ${{ fromJSON(base64decode(needs.setup.outputs.aws-creds)).secret_access_key }}
+          aws-session-token: ${{ fromJSON(base64decode(needs.setup.outputs.aws-creds)).session_token }}
+          aws-region: ${{ env.AWS_REGION }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        
+      - name: Install Zig toolchain
+        uses: korandoru/setup-zig@v1
+        with:
+          zig-version: 0.13.0
+      - name: Install Cargo Lambda
+        uses: jaxxstorm/action-install-gh-release@v1.9.0
+      - name: Build lambda
+        run: cargo lambda build --release --output-format zip
+      - name: CDK Deploy
+        run: |
+          cd infra
+          npm ci
+          npx cdk deploy --require-approval never --exclusively
+
       - name: Install Zig toolchain
         uses: korandoru/setup-zig@v1
         with:
@@ -48,10 +89,7 @@ jobs:
       - name: Build lambda
         run: cargo lambda build --release --output-format zip
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: cd infra && npm install
+      - uses: ./.github/workflows/setup.yml
       - run: cd infra && npm test
 
       # PR Preview Environment
@@ -66,8 +104,12 @@ jobs:
         run: |
           cd infra && npx cdk deploy \
             --require-approval never \
+            --exclusively \
             -c stage=pr-${{ github.event.number }} \
-            --outputs-file outputs.json
+            --outputs-file outputs.json \
+            || (echo "::warning::Deployment failed, attempting cleanup..." && \
+                npx cdk destroy -f -c stage=pr-${{ github.event.number }} && \
+                exit 1)
 
       # Production Deploy
       - if: github.ref == 'refs/heads/main'
@@ -78,23 +120,25 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-prod-deploy
       - if: github.ref == 'refs/heads/main'
-        run: cd infra && npx cdk deploy --require-approval never -c stage=prod
+        run: cd infra && npx cdk deploy --require-approval never --exclusively -c stage=prod
 
   cleanup:
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: npm install -g aws-cdk
-      - run: cd infra && npm install
+      - uses: ./.github/workflows/setup.yml
       - name: Destroy Preview
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: arn:aws:iam::${{ env.PR_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-cleanup-${{ github.event.pull_request.number }}
-      - run: cd infra && npx cdk destroy -f -c stage=pr-${{ github.event.pull_request.number }}
-
+      - run: |
+          echo "::group::Destroying PR environment pr-${{ github.event.pull_request.number }}"
+          cd infra
+          if ! npx cdk destroy -f -c stage=pr-${{ github.event.pull_request.number }}; then
+            echo "::warning::Failed to destroy environment, it may need manual cleanup"
+            exit 1
+          fi
+          echo "::endgroup::"
