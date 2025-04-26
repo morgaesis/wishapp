@@ -51,23 +51,28 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ fromJSON(base64decode(needs.setup.outputs.aws-creds)).access_key_id }}
           aws-secret-access-key: ${{ fromJSON(base64decode(needs.setup.outputs.aws-creds)).secret_access_key }}
           aws-session-token: ${{ fromJSON(base64decode(needs.setup.outputs.aws-creds)).session_token }}
           aws-region: ${{ env.AWS_REGION }}
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Zig toolchain
+        uses: korandoru/setup-zig@v1
+        with:
+          zig-version: 0.13.0
+      - name: Install Cargo Lambda
+        uses: jaxxstorm/action-install-gh-release@v1.9.0
+      - name: Build lambda
+        run: cargo lambda build --release --output-format zip
       - name: CDK Deploy
         run: |
           cd infra
           npm ci
           npx cdk deploy --require-approval never --exclusively
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
 
       - name: Install Zig toolchain
         uses: korandoru/setup-zig@v1
