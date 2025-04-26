@@ -89,10 +89,7 @@ jobs:
       - name: Build lambda
         run: cargo lambda build --release --output-format zip
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: cd infra && npm install
+      - uses: ./.github/workflows/setup.yml
       - run: cd infra && npm test
 
       # PR Preview Environment
@@ -130,11 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: npm install -g aws-cdk
-      - run: cd infra && npm install
+      - uses: ./.github/workflows/setup.yml
       - name: Destroy Preview
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -142,8 +135,10 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-cleanup-${{ github.event.pull_request.number }}
       - run: |
-          echo "Destroying PR environment pr-${{ github.event.pull_request.number }}"
+          echo "::group::Destroying PR environment pr-${{ github.event.pull_request.number }}"
           cd infra
-          npx cdk destroy -f -c stage=pr-${{ github.event.pull_request.number }} || \
+          if ! npx cdk destroy -f -c stage=pr-${{ github.event.pull_request.number }}; then
             echo "::warning::Failed to destroy environment, it may need manual cleanup"
-          exit 0
+            exit 1
+          fi
+          echo "::endgroup::"
