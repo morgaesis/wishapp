@@ -1,0 +1,29 @@
+#!/bin/sh
+echo -e "\033[1;34mRunning pre-push checks...\033[0m"
+
+# Run Prettier formatting check
+echo -e "\033[1;34mChecking code formatting with Prettier...\033[0m"
+prettier --check "**/*.{js,ts,json,md,yml,yaml}" || {
+  echo -e "\033[1;31mPrettier formatting issues found\033[0m"
+  echo -e "\033[1;33mRun 'prettier --write' to fix formatting\033[0m"
+  exit 1
+}
+
+echo -e "\033[1;34mRunning yamllint checks...\033[0m"
+find . -type f \( -name "*.yml" -o -name "*.yaml" \) -exec yamllint -f github {} + || {
+  echo -e "\033[1;31mYAML lint errors found\033[0m"
+  echo -e "\033[1;33mTo bypass temporarily (not recommended), use: git push --no-verify\033[0m"
+  exit 1
+}
+
+# Run actionlint if workflow files changed
+if git diff --name-only HEAD @{u} | grep -q ".github/workflows/"; then
+  echo -e "\033[1;34mRunning actionlint checks...\033[0m"
+  actionlint || {
+    echo -e "\033[1;31mGitHub Actions workflow errors found\033[0m"
+    exit 1
+  }
+fi
+
+echo -e "\033[1;32mAll checks passed\033[0m"
+exit 0
