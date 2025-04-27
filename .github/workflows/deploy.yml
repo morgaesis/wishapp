@@ -23,27 +23,17 @@ env:
 jobs:
   setup:
     runs-on: ubuntu-latest
-    outputs:
-      aws-creds: ${{ steps.assume-role.outputs.aws-creds }}
     permissions:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v3
-      - uses: aws-actions/configure-aws-credentials@v2
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         id: assume-role
         with:
           role-to-assume: arn:aws:iam::${{ github.event_name == 'pull_request' && env.PR_AWS_ACCOUNT_ID || env.PROD_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
           role-session-name: ${{ github.event_name == 'pull_request' && format('github-pr-{0}', github.event.number) || 'github-prod-deploy' }}
           aws-region: ${{ env.AWS_REGION }}
-      - id: set-outputs
-        run: |
-          echo "aws-creds=$(jq -n \
-            --arg access_key_id \"$AWS_ACCESS_KEY_ID\" \
-            --arg secret_access_key \"$AWS_SECRET_ACCESS_KEY\" \
-            --arg session_token \"$AWS_SESSION_TOKEN\" \
-            '{access_key_id: $access_key_id, secret_access_key: $secret_access_key, session_token: $session_token}' | base64)" >> $GITHUB_OUTPUT
-  jobs:
   deploy:
     needs: setup
     runs-on: ubuntu-latest
@@ -52,11 +42,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v2
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ fromJSON(base64decode(needs.setup.outputs.aws-creds)).access_key_id }}
-          aws-secret-access-key: ${{ fromJSON(base64decode(needs.setup.outputs.aws-creds)).secret_access_key }}
-          aws-session-token: ${{ fromJSON(base64decode(needs.setup.outputs.aws-creds)).session_token }}
+          role-to-assume: arn:aws:iam::${{ github.event_name == 'pull_request' && env.PR_AWS_ACCOUNT_ID || env.PROD_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
+          role-session-name: ${{ github.event_name == 'pull_request' && format('github-pr-{0}', github.event.number) || 'github-prod-deploy' }}
           aws-region: ${{ env.AWS_REGION }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -95,7 +84,7 @@ jobs:
       # PR Preview Environment
       - if: github.event_name == 'pull_request'
         name: Deploy Preview
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ env.PR_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
@@ -114,7 +103,7 @@ jobs:
       # Production Deploy
       - if: github.ref == 'refs/heads/main'
         name: Configure Prod AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ env.PROD_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
@@ -125,11 +114,13 @@ jobs:
   cleanup:
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/workflows/setup.yml
-      - name: Destroy Preview
-        uses: aws-actions/configure-aws-credentials@v2
+      - uses: actions/checkout@v4
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ env.PR_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
