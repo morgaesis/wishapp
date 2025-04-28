@@ -1,16 +1,19 @@
-name: Infrastructure CI/CD
+name: CDK Deployment
 
-# Workflow triggers (yamllint disable rule:truthy for GitHub Actions syntax)
-on:
+on: # yamllint disable-line rule:truthy
+  workflow_dispatch:
   push:
-    branches: ["main"]
-    paths: ["infra/**"]
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/deploy.yml"
   pull_request:
-    types: ["opened", "synchronize", "reopened"]
-    paths: ["infra/**"]
+    types: [opened, synchronize, reopened]
+    paths:
+      - "infra/**"
+      - ".github/workflows/deploy.yml"
   pull_request_target:
-    types: ["closed"]
-    paths: ["infra/**"]
+    types: [closed]
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -62,21 +65,6 @@ jobs:
           cd infra
           npm ci
           npx cdk deploy --require-approval never --exclusively
-
-      - name: Install Zig toolchain
-        uses: korandoru/setup-zig@v1
-        with:
-          zig-version: 0.13.0
-
-      - name: Install Cargo Lambda
-        uses: jaxxstorm/action-install-gh-release@v1.9.0
-        with:
-          repo: cargo-lambda/cargo-lambda
-          platform: linux
-          arch: x86_64
-
-      - name: Build lambda
-        run: cargo lambda build --release --output-format zip
 
       - uses: ./.github/workflows/setup.yml
       - run: cd infra && npm test
