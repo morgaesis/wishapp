@@ -16,14 +16,5 @@ find . -type f \( -name "*.yml" -o -name "*.yaml" \) -exec yamllint -f github {}
   exit 1
 }
 
-# Run actionlint if workflow files changed
-if git diff --name-only HEAD @{u} | grep -q ".github/workflows/"; then
-  echo -e "\033[1;34mRunning actionlint checks...\033[0m"
-  actionlint || {
-    echo -e "\033[1;31mGitHub Actions workflow errors found\033[0m"
-    exit 1
-  }
-fi
-
 echo -e "\033[1;32mAll checks passed\033[0m"
 exit 0

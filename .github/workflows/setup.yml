@@ -1,5 +1,5 @@
 name: Reusable Setup
-on:
+on: # yamllint disable-line rule:truthy
   workflow_call:
     outputs:
       node-version:
