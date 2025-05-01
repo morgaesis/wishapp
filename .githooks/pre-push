@@ -1,20 +1,38 @@
 #!/bin/sh
-echo -e "\033[1;34mRunning pre-push checks...\033[0m"
+# Check for verbose flag
+VERBOSE=0
+if [ "$1" = "-v" ]; then
+  VERBOSE=1
+fi
+
+log() {
+  if [ "$VERBOSE" -eq 1 ]; then
+    echo "$@" >&2
+  fi
+}
+
+error() {
+  echo "$@" >&2
+}
 
 # Run Prettier formatting check
-echo -e "\033[1;34mChecking code formatting with Prettier...\033[0m"
-prettier --check "**/*.{js,ts,json,md,yml,yaml}" || {
-  echo -e "\033[1;31mPrettier formatting issues found\033[0m"
-  echo -e "\033[1;33mRun 'prettier --write' to fix formatting\033[0m"
+prettier --check "**/*.{js,ts,json,md,yml,yaml}" >/dev/null 2>&1 || {
+  error -e "\033[1;31mPrettier: Formatting issues found\033[0m"
+  error -e "  Run: \033[1;33mprettier --write\033[0m to fix"
+  error -e "  Or use: \033[1;33mgit push --no-verify\033[0m to skip"
   exit 1
 }
 
-echo -e "\033[1;34mRunning yamllint checks...\033[0m"
-find . -type f \( -name "*.yml" -o -name "*.yaml" \) -exec yamllint -f github {} + || {
-  echo -e "\033[1;31mYAML lint errors found\033[0m"
-  echo -e "\033[1;33mTo bypass temporarily (not recommended), use: git push --no-verify\033[0m"
+# Run yamllint checks
+YAML_ERRORS=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -exec yamllint -f github {} + 2>&1)
+if [ -n "$YAML_ERRORS" ]; then
+  error -e "\033[1;31mYAML: Lint errors found\033[0m"
+  if [ "$VERBOSE" -eq 1 ]; then
+    echo "$YAML_ERRORS" >&2
+  fi
+  error -e "  Use: \033[1;33mgit push --no-verify\033[0m to skip"
   exit 1
-}
+fi
 
-echo -e "\033[1;32mAll checks passed\033[0m"
+echo -e "\033[1;32mOK: All pre-push checks passed\033[0m"
 exit 0

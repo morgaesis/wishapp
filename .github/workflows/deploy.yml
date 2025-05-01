@@ -68,7 +68,6 @@ jobs:
           npm ci
           npx cdk deploy --require-approval never --exclusively
 
-      - uses: ./.github/workflows/setup.yml
       - run: cd infra && npm test
 
       # PR Preview Environment
