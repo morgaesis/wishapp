@@ -1,38 +1,25 @@
 #!/bin/sh
-# Check for verbose flag
-VERBOSE=0
-if [ "$1" = "-v" ]; then
-  VERBOSE=1
-fi
 
 log() {
-  if [ "$VERBOSE" -eq 1 ]; then
-    echo "$@" >&2
-  fi
-}
-
-error() {
   echo "$@" >&2
 }
 
 # Run Prettier formatting check
 prettier --check "**/*.{js,ts,json,md,yml,yaml}" >/dev/null 2>&1 || {
-  error -e "\033[1;31mPrettier: Formatting issues found\033[0m"
-  error -e "  Run: \033[1;33mprettier --write\033[0m to fix"
-  error -e "  Or use: \033[1;33mgit push --no-verify\033[0m to skip"
+  log -e "\033[1;31mPrettier: Formatting issues found\033[0m"
+  log -e "  Run: \033[1;33mprettier --write\033[0m to fix"
+  log -e "  Or use: \033[1;33mgit push --no-verify\033[0m to skip"
   exit 1
 }
 
 # Run yamllint checks
 YAML_ERRORS=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -exec yamllint -f github {} + 2>&1)
 if [ -n "$YAML_ERRORS" ]; then
-  error -e "\033[1;31mYAML: Lint errors found\033[0m"
-  if [ "$VERBOSE" -eq 1 ]; then
-    echo "$YAML_ERRORS" >&2
-  fi
-  error -e "  Use: \033[1;33mgit push --no-verify\033[0m to skip"
+  log -e "\033[1;31mYAML: Lint errors found\033[0m"
+  log -e "$YAML_ERRORS"
+  log -e "  Use: \033[1;33mgit push --no-verify\033[0m to skip"
   exit 1
 fi
 
-echo -e "\033[1;32mOK: All pre-push checks passed\033[0m"
+log -e "\033[1;32mOK: All pre-push checks passed\033[0m"
 exit 0
