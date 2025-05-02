@@ -44,8 +44,10 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ github.event_name == 'pull_request' && env.PR_AWS_ACCOUNT_ID || env.PROD_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
           role-session-name: ${{ github.event_name == 'pull_request' && format('github-pr-{0}', github.event.number) || 'github-prod-deploy' }}
