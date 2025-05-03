@@ -2980,6 +2980,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "httpmock",
+ "hyper 0.14.32",
  "lambda_http",
  "lambda_runtime",
  "mockito",

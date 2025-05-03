@@ -3,7 +3,19 @@ mod handlers;
 use handlers::{handle_delete, handle_get, handle_post, handle_put};
 
 pub async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
-    match event.method().as_str() {
+    println!("[DEBUG] Lambda request: path={}, method={}, headers={:?}", 
+        event.uri().path(),
+        event.method(),
+        event.headers());
+    
+    // Extract method from Lambda headers or fallback to request method
+    let method = if let Some(method_override) = event.headers().get("x-http-method-override") {
+        method_override.to_str()?
+    } else {
+        event.method().as_str()
+    };
+    
+    match method {
         "GET" => handle_get(event).await,
         "POST" => handle_post(event).await,
         "PUT" => handle_put(event).await,
