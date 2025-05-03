@@ -96,5 +96,19 @@ jobs:
           role-to-assume: arn:aws:iam::${{ env.PR_AWS_ACCOUNT_ID }}:role/${{ env.DEPLOYMENT_ROLE_NAME }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-cleanup-${{ github.event.pull_request.number }}
-      - run: cd infra && npx cdk destroy -f -c stage=pr-${{ github.event.pull_request.number }}
+      - name: Check if stack exists
+        id: check_stack
+        run: |
+          cd infra && \
+          if npx cdk list | grep -q "pr-${{ github.event.pull_request.number }}"; then
+            echo "stack_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "stack_exists=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Destroy stack if exists
+        if: steps.check_stack.outputs.stack_exists == 'true'
+        run: cd infra && npx cdk destroy -f -c stage=pr-${{ github.event.pull_request.number }}
+      - name: Skip if stack doesn't exist
+        if: steps.check_stack.outputs.stack_exists == 'false'
+        run: echo "Stack pr-${{ github.event.pull_request.number }} does not exist, skipping destruction"
 
