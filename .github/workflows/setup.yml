@@ -1,0 +1,23 @@
+name: Reusable Setup
+on: # yamllint disable-line rule:truthy
+  workflow_call:
+    outputs:
+      node-version:
+        description: "Node version used"
+        value: ${{ steps.setup-node.outputs.version }}
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install CDK
+        run: npm install -g aws-cdk
+
+      - name: Install project dependencies
+        run: cd infra && npm install
