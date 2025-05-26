@@ -14,7 +14,7 @@ async fn test_health_check() {
 
     assert_eq!(response.status(), 200);
     match response.body() {
-        Body::Text(text) => assert_eq!(text, "OK"),
+        Body::Text(text) => assert_eq!(text, "{\"status\":\"OK\"}"),
         _ => panic!("Expected text response body, got {:?}", response.body()),
     }
 }
