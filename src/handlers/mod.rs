@@ -11,7 +11,7 @@ pub static WISHLISTS: Lazy<Mutex<Vec<Wishlist>>> = Lazy::new(|| Mutex::new(Vec::
 pub async fn handle_get(event: Request) -> Result<Response<Body>, Error> {
     match event.uri().path() {
         "/health" => Ok(Response::builder().status(200).body("OK".into())?),
-        "/wishlists" => {
+        "/wishlists" | "/wishlist" => {
             let wishlists = WISHLISTS.lock().unwrap();
             Ok(Response::builder()
                 .status(200)
