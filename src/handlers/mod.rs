@@ -9,6 +9,8 @@ use std::sync::Mutex;
 pub static WISHLISTS: Lazy<Mutex<Vec<Wishlist>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 pub async fn handle_get(event: Request) -> Result<Response<Body>, Error> {
+    let path = event.uri().path();
+    println!("[DEBUG] GET request path: {}", path);
     match event.uri().path() {
         "/health" => Ok(Response::builder().status(200).body("OK".into())?),
         "/wishlists" | "/wishlist" => {
