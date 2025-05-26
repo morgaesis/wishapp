@@ -63,7 +63,7 @@ jobs:
         with:
           repo: cargo-lambda/cargo-lambda
       - name: Build lambda
-        run: cargo lambda build --release
+        run: cargo lambda build --release --target x86_64-unknown-linux-musl
       - name: CDK Deploy
         run: |
           cd infra
