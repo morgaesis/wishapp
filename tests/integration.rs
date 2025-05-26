@@ -1,13 +1,12 @@
+use aws_config::SdkConfig;
+use aws_credential_types::provider::SharedCredentialsProvider;
+use aws_credential_types::Credentials;
+use aws_sdk_dynamodb::error::SdkError;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 use lambda_http::{Body, Request};
 use serde_json::json;
 use wishlist_api::handlers::Wishlist;
 use wishlist_api::handlers::{handle_delete, handle_get, handle_post, handle_put};
-use aws_sdk_dynamodb::Client as DynamoDbClient;
-use aws_config::SdkConfig;
-use aws_credential_types::Credentials;
-use aws_sdk_dynamodb::error::SdkError;
-use aws_credential_types::provider::SharedCredentialsProvider;
-
 
 use tokio::time::{sleep, Duration};
 
@@ -18,11 +17,7 @@ async fn wait_for_table_status(
 ) {
     for _ in 0..30 {
         // Max 10 retries
-        let describe_table_result = client
-            .describe_table()
-            .table_name(table_name)
-            .send()
-            .await;
+        let describe_table_result = client.describe_table().table_name(table_name).send().await;
 
         match describe_table_result {
             Ok(output) => {
@@ -99,11 +94,7 @@ async fn create_table(client: &DynamoDbClient) {
 async fn wait_for_table_gone(client: &DynamoDbClient, table_name: &str) {
     for _ in 0..30 {
         // Max 10 retries
-        let describe_table_result = client
-            .describe_table()
-            .table_name(table_name)
-            .send()
-            .await;
+        let describe_table_result = client.describe_table().table_name(table_name).send().await;
 
         match describe_table_result {
             Ok(_) => {
@@ -165,7 +156,9 @@ async fn test_health_check() {
 
     println!("Request URI: {}", event.uri());
 
-    let response = handle_get(event, &db_client).await.expect("expected Ok(_) value");
+    let response = handle_get(event, &db_client)
+        .await
+        .expect("expected Ok(_) value");
 
     assert_eq!(response.status(), 200);
     match response.body() {
@@ -177,7 +170,7 @@ async fn test_health_check() {
 #[tokio::test]
 async fn test_full_wishlist_lifecycle() {
     let db_client = setup_db_client().await;
-    
+
     // Test uses unique IDs so no initial cleanup needed
     let _check_req = Request::new(Body::Empty);
 
@@ -322,8 +315,6 @@ async fn test_full_wishlist_lifecycle() {
     assert_eq!(update_res.status(), 200);
     println!("Update response body: {:?}", update_res.body().as_ref());
 
-    
-
     let updated: Wishlist = if update_res.body().is_empty() {
         panic!("Received empty response body when expecting updated wishlist");
     } else {
@@ -353,7 +344,6 @@ async fn test_full_wishlist_lifecycle() {
         .unwrap_or_else(|_| panic!("Failed to parse wishlist from: {}", body_str));
     println!("Updated wishlist: {:?}", updated_wishlist);
 
-    
     assert_eq!(updated_wishlist.owner, "Updated Christmas Owner");
     assert_eq!(updated_wishlist.items.len(), 3);
     assert_eq!(
@@ -372,7 +362,9 @@ async fn test_full_wishlist_lifecycle() {
     assert_eq!(delete_res.status(), 204);
 
     // 7. Verify deletion
-    let final_get = handle_get(Request::new(Body::Empty), &db_client).await.unwrap();
+    let final_get = handle_get(Request::new(Body::Empty), &db_client)
+        .await
+        .unwrap();
     match final_get.status().as_u16() {
         200 => {
             let body = final_get.body();
@@ -393,7 +385,7 @@ async fn test_full_wishlist_lifecycle() {
 #[tokio::test]
 async fn test_item_operations() {
     let db_client = setup_db_client().await;
-    
+
     // Create wishlist
     let create_req = Request::new(Body::from(
         json!({

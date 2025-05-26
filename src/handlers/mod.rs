@@ -273,7 +273,10 @@ pub async fn handle_delete(
             }
         }
         Err(e) => {
-            eprintln!("Error checking item existence for deletion in DynamoDB: {:?}", e);
+            eprintln!(
+                "Error checking item existence for deletion in DynamoDB: {:?}",
+                e
+            );
             Ok(Response::builder()
                 .status(500)
                 .body("Internal Server Error".into())?)

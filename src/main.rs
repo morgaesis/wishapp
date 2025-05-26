@@ -1,4 +1,3 @@
-use aws_config::SdkConfig;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use lambda_http::{Body, Error, Request, Response};
 mod handlers;
