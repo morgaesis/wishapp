@@ -142,41 +142,68 @@ pub async fn handle_put(
 ) -> Result<Response<Body>, Error> {
     let updated: Wishlist = serde_json::from_slice(event.body().as_ref())?;
     println!("[DEBUG] Updating wishlist with ID: {}", updated.id);
-    let put_item_output = db_client
-        .put_item()
+
+    // Check if the item exists before attempting to update
+    let get_item_output = db_client
+        .get_item()
         .table_name(TABLE_NAME)
-        .item(
+        .key(
             "id",
             aws_sdk_dynamodb::types::AttributeValue::S(updated.id.clone()),
-        )
-        .item(
-            "name",
-            aws_sdk_dynamodb::types::AttributeValue::S(updated.name.clone()),
-        )
-        .item(
-            "owner",
-            aws_sdk_dynamodb::types::AttributeValue::S(updated.owner.clone()),
-        )
-        .item(
-            "items",
-            aws_sdk_dynamodb::types::AttributeValue::L(
-                updated
-                    .items
-                    .iter()
-                    .map(|item| aws_sdk_dynamodb::types::AttributeValue::S(item.clone()))
-                    .collect(),
-            ),
         )
         .send()
         .await;
 
-    match put_item_output {
-        Ok(_) => Ok(Response::builder()
-            .status(200)
-            .header("Content-Type", "application/json")
-            .body(serde_json::to_string(&updated)?.into())?),
+    match get_item_output {
+        Ok(output) => {
+            if output.item.is_none() {
+                // Item not found, return 404
+                return Ok(Response::builder().status(404).body("Not Found".into())?);
+            }
+            // Item found, proceed with put_item
+            let put_item_output = db_client
+                .put_item()
+                .table_name(TABLE_NAME)
+                .item(
+                    "id",
+                    aws_sdk_dynamodb::types::AttributeValue::S(updated.id.clone()),
+                )
+                .item(
+                    "name",
+                    aws_sdk_dynamodb::types::AttributeValue::S(updated.name.clone()),
+                )
+                .item(
+                    "owner",
+                    aws_sdk_dynamodb::types::AttributeValue::S(updated.owner.clone()),
+                )
+                .item(
+                    "items",
+                    aws_sdk_dynamodb::types::AttributeValue::L(
+                        updated
+                            .items
+                            .iter()
+                            .map(|item| aws_sdk_dynamodb::types::AttributeValue::S(item.clone()))
+                            .collect(),
+                    ),
+                )
+                .send()
+                .await;
+
+            match put_item_output {
+                Ok(_) => Ok(Response::builder()
+                    .status(200)
+                    .header("Content-Type", "application/json")
+                    .body(serde_json::to_string(&updated)?.into())?),
+                Err(e) => {
+                    eprintln!("Error updating item in DynamoDB: {:?}", e);
+                    Ok(Response::builder()
+                        .status(500)
+                        .body("Internal Server Error".into())?)
+                }
+            }
+        }
         Err(e) => {
-            eprintln!("Error updating item in DynamoDB: {:?}", e);
+            eprintln!("Error checking item existence in DynamoDB: {:?}", e);
             Ok(Response::builder()
                 .status(500)
                 .body("Internal Server Error".into())?)
@@ -207,8 +234,9 @@ pub async fn handle_delete(
         }
     };
 
-    let delete_item_output = db_client
-        .delete_item()
+    // Check if the item exists before attempting to delete
+    let get_item_output = db_client
+        .get_item()
         .table_name(TABLE_NAME)
         .key(
             "id",
@@ -217,10 +245,35 @@ pub async fn handle_delete(
         .send()
         .await;
 
-    match delete_item_output {
-        Ok(_) => Ok(Response::builder().status(204).body("".into())?),
+    match get_item_output {
+        Ok(output) => {
+            if output.item.is_none() {
+                // Item not found, return 404
+                return Ok(Response::builder().status(404).body("Not Found".into())?);
+            }
+            // Item found, proceed with delete
+            let delete_item_output = db_client
+                .delete_item()
+                .table_name(TABLE_NAME)
+                .key(
+                    "id",
+                    aws_sdk_dynamodb::types::AttributeValue::S(id.to_string()),
+                )
+                .send()
+                .await;
+
+            match delete_item_output {
+                Ok(_) => Ok(Response::builder().status(204).body("".into())?),
+                Err(e) => {
+                    eprintln!("Error deleting item from DynamoDB: {:?}", e);
+                    Ok(Response::builder()
+                        .status(500)
+                        .body("Internal Server Error".into())?)
+                }
+            }
+        }
         Err(e) => {
-            eprintln!("Error deleting item from DynamoDB: {:?}", e);
+            eprintln!("Error checking item existence for deletion in DynamoDB: {:?}", e);
             Ok(Response::builder()
                 .status(500)
                 .body("Internal Server Error".into())?)
