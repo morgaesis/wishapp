@@ -10,8 +10,10 @@ pub static WISHLISTS: Lazy<Mutex<Vec<Wishlist>>> = Lazy::new(|| Mutex::new(Vec::
 
 pub async fn handle_get(event: Request) -> Result<Response<Body>, Error> {
     let path = event.uri().path();
+    let cleaned_path = path.trim_start_matches("/prod"); // Remove /prod prefix
     println!("[DEBUG] GET request path: {}", path);
-    match event.uri().path() {
+    println!("[DEBUG] Cleaned GET request path: {}", cleaned_path);
+    match cleaned_path {
         "/health" => Ok(Response::builder().status(200).body("OK".into())?),
         "/wishlists" | "/wishlist" => {
             let wishlists = WISHLISTS.lock().unwrap();
