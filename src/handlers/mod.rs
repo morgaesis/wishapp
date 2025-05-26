@@ -14,7 +14,10 @@ pub async fn handle_get(event: Request) -> Result<Response<Body>, Error> {
     println!("[DEBUG] GET request path: {}", path);
     println!("[DEBUG] Cleaned GET request path: {}", cleaned_path);
     match cleaned_path {
-        "/health" => Ok(Response::builder().status(200).body("OK".into())?),
+        "/health" => Ok(Response::builder()
+            .status(200)
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(&json!({"status": "OK"}))?.into())?),
         "/wishlists" | "/wishlist" => {
             let wishlists = WISHLISTS.lock().unwrap();
             Ok(Response::builder()
