@@ -248,7 +248,11 @@ async fn test_full_wishlist_lifecycle() {
 
 #[tokio::test]
 async fn test_item_operations() {
-    // Test uses unique IDs so no initial cleanup needed
+    // Clear and initialize storage for this test
+    {
+        let mut wishlists = wishlist_api::handlers::WISHLISTS.lock().unwrap();
+        wishlists.clear();
+    }
     // Create wishlist
     let create_req = Request::new(Body::from(
         json!({
