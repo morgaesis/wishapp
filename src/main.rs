@@ -1,3 +1,5 @@
+use aws_config::SdkConfig;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 use lambda_http::{Body, Error, Request, Response};
 mod handlers;
 use handlers::{handle_delete, handle_get, handle_post, handle_put};
@@ -28,12 +30,15 @@ impl From<hyper::Error> for AppError {
     }
 }
 
-pub async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
+pub async fn handle_request(
+    event: Request,
+    db_client: &DynamoDbClient,
+) -> Result<Response<Body>, Error> {
     match event.method().as_str() {
-        "GET" => handle_get(event).await,
-        "POST" => handle_post(event).await,
-        "PUT" => handle_put(event).await,
-        "DELETE" => handle_delete(event).await,
+        "GET" => handle_get(event, db_client).await,
+        "POST" => handle_post(event, db_client).await,
+        "PUT" => handle_put(event, db_client).await,
+        "DELETE" => handle_delete(event, db_client).await,
         _ => Ok(Response::builder()
             .status(405)
             .body("Method Not Allowed".into())?),
@@ -42,6 +47,9 @@ pub async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    let config = aws_config::load_from_env().await;
+    let db_client = DynamoDbClient::new(&config);
+
     #[cfg(not(feature = "aws_lambda"))]
     {
         // Local server code
@@ -61,22 +69,27 @@ async fn main() -> Result<(), Error> {
 
         loop {
             let (stream, _) = listener.accept().await?;
+            let db_client_clone = db_client.clone(); // Clone for each spawned task
             tokio::task::spawn(async move {
                 if let Err(err) = http1::Builder::new()
                     .serve_connection(
                         TokioIo::new(stream),
-                        service_fn(move |req: HyperRequest<hyper::body::Incoming>| async move {
-                            let (parts, body) = req.into_parts();
-                            let body_bytes = body.collect().await?.to_bytes();
-                            let lambda_body = lambda_http::Body::from(body_bytes.to_vec());
-                            let lambda_req = lambda_http::Request::from_parts(parts, lambda_body);
-                            match handle_request(lambda_req).await {
-                                Ok(resp) => {
-                                    let (parts, body) = resp.into_parts();
-                                    let hyper_resp_body = Full::new(Bytes::from(body.to_vec()));
-                                    Ok(hyper::Response::from_parts(parts, hyper_resp_body))
+                        service_fn(move |req: HyperRequest<hyper::body::Incoming>| {
+                            let db_client_inner_clone = db_client_clone.clone(); // Clone for each request
+                            async move {
+                                let (parts, body) = req.into_parts();
+                                let body_bytes = body.collect().await?.to_bytes();
+                                let lambda_body = lambda_http::Body::from(body_bytes.to_vec());
+                                let lambda_req =
+                                    lambda_http::Request::from_parts(parts, lambda_body);
+                                match handle_request(lambda_req, &db_client_inner_clone).await {
+                                    Ok(resp) => {
+                                        let (parts, body) = resp.into_parts();
+                                        let hyper_resp_body = Full::new(Bytes::from(body.to_vec()));
+                                        Ok(hyper::Response::from_parts(parts, hyper_resp_body))
+                                    }
+                                    Err(e) => Err(AppError::from(e)),
                                 }
-                                Err(e) => Err(AppError::from(e)),
                             }
                         }),
                     )
@@ -90,6 +103,9 @@ async fn main() -> Result<(), Error> {
 
     #[cfg(feature = "aws_lambda")]
     {
-        lambda_http::run(lambda_http::service_fn(handle_request)).await
+        lambda_http::run(lambda_http::service_fn(|event| {
+            handle_request(event, &db_client)
+        }))
+        .await
     }
 }

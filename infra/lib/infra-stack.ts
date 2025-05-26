@@ -2,6 +2,7 @@ import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as apigw from "aws-cdk-lib/aws-apigateway";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 
 export interface InfraStackProps extends cdk.StackProps {
   assetPath?: string;
@@ -18,8 +19,21 @@ export class InfraStack extends cdk.Stack {
         props?.assetPath || "../target/lambda/wishlist_api",
       ),
       handler: "doesnt.matter",
-      environment: { DUMMY_VAR: "1" },
+      environment: {
+        DUMMY_VAR: "1",
+        TABLE_NAME: wishlistTable.tableName,
+      },
     });
+
+    // DynamoDB Table
+    const wishlistTable = new dynamodb.Table(this, "WishlistTable", {
+      tableName: "wishlist_table",
+      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // NOT recommended for production code
+    });
+
+    // Grant Lambda permissions to read/write from the DynamoDB table
+    wishlistTable.grantReadWriteData(wishLambda);
 
     // API Gateway
     new apigw.LambdaRestApi(this, "WishApi", {
