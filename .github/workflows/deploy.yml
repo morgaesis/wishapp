@@ -64,6 +64,8 @@ jobs:
           repo: cargo-lambda/cargo-lambda
       - name: Build lambda
         run: cargo lambda build --release --target x86_64-unknown-linux-musl
+- name: Force asset hash change
+        run: date > target/lambda/wishlist_api/timestamp.txt
       - name: CDK Deploy
         run: |
           cd infra
