@@ -28,7 +28,6 @@ impl From<hyper::Error> for AppError {
     }
 }
 
-
 pub async fn handle_request(event: Request) -> Result<Response<Body>, Error> {
     match event.method().as_str() {
         "GET" => handle_get(event).await,
@@ -46,16 +45,16 @@ async fn main() -> Result<(), Error> {
     #[cfg(not(feature = "aws_lambda"))]
     {
         // Local server code
+        use bytes::Bytes;
+        use http_body_util::Full;
         use hyper::server::conn::http1;
         use hyper::service::service_fn;
         use hyper::Request as HyperRequest;
-use http_body_util::Full;
-use bytes::Bytes;
         use tokio::net::TcpListener;
         // use lambda_http::RequestExt; // To use .into_lambda_http_request()
-        use std::net::SocketAddr;
+        use http_body_util::BodyExt;
         use hyper_util::rt::tokio::TokioIo;
-        use http_body_util::BodyExt; // For .collect()
+        use std::net::SocketAddr; // For .collect()
 
         let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
         let listener = TcpListener::bind(addr).await?;
@@ -66,22 +65,18 @@ use bytes::Bytes;
                 if let Err(err) = http1::Builder::new()
                     .serve_connection(
                         TokioIo::new(stream),
-                        service_fn(move |req: HyperRequest<hyper::body::Incoming>| {
-                            async move {
-                                let (parts, body) = req.into_parts();
-                                let body_bytes = body.collect().await?.to_bytes();
-                                let lambda_body = lambda_http::Body::from(body_bytes.to_vec());
-                                let lambda_req = lambda_http::Request::from_parts(parts, lambda_body);
-                                match handle_request(lambda_req).await {
-                                    Ok(resp) => {
-                                        let (parts, body) = resp.into_parts();
-                                        let hyper_resp_body = Full::new(Bytes::from(body.to_vec()));
-                                        Ok(hyper::Response::from_parts(parts, hyper_resp_body))
-                                    },
-                                    Err(e) => {
-                                        Err(AppError::from(e))
-                                    }
+                        service_fn(move |req: HyperRequest<hyper::body::Incoming>| async move {
+                            let (parts, body) = req.into_parts();
+                            let body_bytes = body.collect().await?.to_bytes();
+                            let lambda_body = lambda_http::Body::from(body_bytes.to_vec());
+                            let lambda_req = lambda_http::Request::from_parts(parts, lambda_body);
+                            match handle_request(lambda_req).await {
+                                Ok(resp) => {
+                                    let (parts, body) = resp.into_parts();
+                                    let hyper_resp_body = Full::new(Bytes::from(body.to_vec()));
+                                    Ok(hyper::Response::from_parts(parts, hyper_resp_body))
                                 }
+                                Err(e) => Err(AppError::from(e)),
                             }
                         }),
                     )

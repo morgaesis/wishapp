@@ -14,7 +14,10 @@ async fn test_health_check() {
     let response = handle_request(request).await.expect("Health check failed");
 
     assert_eq!(response.status(), 200);
-    assert_eq!(response.body(), &Body::Text("{\"status\":\"OK\"}".to_string()));
+    assert_eq!(
+        response.body(),
+        &Body::Text("{\"status\":\"OK\"}".to_string())
+    );
 }
 
 #[tokio::test]
