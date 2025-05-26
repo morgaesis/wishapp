@@ -1,4 +1,4 @@
-use lambda_http::{run, service_fn, Body, Error, Request, Response};
+use lambda_http::{Body, Error, Request, Response};
 mod handlers;
 use handlers::{handle_delete, handle_get, handle_post, handle_put};
 
@@ -52,7 +52,7 @@ async fn main() -> Result<(), Error> {
 use http_body_util::Full;
 use bytes::Bytes;
         use tokio::net::TcpListener;
-        use lambda_http::RequestExt; // To use .into_lambda_http_request()
+        // use lambda_http::RequestExt; // To use .into_lambda_http_request()
         use std::net::SocketAddr;
         use hyper_util::rt::tokio::TokioIo;
         use http_body_util::BodyExt; // For .collect()
@@ -95,6 +95,6 @@ use bytes::Bytes;
 
     #[cfg(feature = "aws_lambda")]
     {
-        run(service_fn(handle_request)).await
+        lambda_http::run(lambda_http::service_fn(handle_request)).await
     }
 }
