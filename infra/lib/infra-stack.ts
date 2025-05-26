@@ -18,6 +18,7 @@ export class InfraStack extends cdk.Stack {
         props?.assetPath || "../target/lambda/wishlist_api",
       ),
       handler: "doesnt.matter",
+      environment: { DUMMY_VAR: "1" },
     });
 
     // API Gateway
