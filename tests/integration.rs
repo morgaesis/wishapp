@@ -67,6 +67,7 @@ async fn create_table(client: &DynamoDbClient) {
         .build()
         .expect("Failed to build AttributeDefinition");
 
+    println!("Attempting to create table '{}'...", table_name);
     client
         .create_table()
         .table_name(table_name)
@@ -83,6 +84,7 @@ async fn create_table(client: &DynamoDbClient) {
         .await
         .expect("Failed to create table");
     println!("Table '{}' creation initiated.", table_name);
+    println!("Waiting for table '{}' to become active...", table_name);
     wait_for_table_status(
         client,
         table_name,
@@ -143,13 +145,17 @@ async fn setup_db_client() -> DynamoDbClient {
         .credentials_provider(SharedCredentialsProvider::new(Credentials::for_tests())) // Use dummy credentials for local testing
         .build();
     let client = DynamoDbClient::new(&config);
+    println!("Setting up DynamoDB client. Deleting existing table (if any)...");
     delete_table(&client).await; // Ensure clean state
+    println!("Creating fresh table...");
     create_table(&client).await; // Create fresh table
+    println!("DynamoDB client setup complete.");
     client
 }
 
 #[tokio::test]
 async fn test_health_check() {
+    println!("Running test_health_check...");
     let db_client = setup_db_client().await;
     let mut event = Request::new(Body::Empty);
     *event.uri_mut() = "/health".parse().unwrap();
@@ -169,6 +175,7 @@ async fn test_health_check() {
 // Cleanup function moved to end of file for final cleanup
 #[tokio::test]
 async fn test_full_wishlist_lifecycle() {
+    println!("Running test_full_wishlist_lifecycle...");
     let db_client = setup_db_client().await;
 
     // Test uses unique IDs so no initial cleanup needed
@@ -384,6 +391,7 @@ async fn test_full_wishlist_lifecycle() {
 
 #[tokio::test]
 async fn test_item_operations() {
+    println!("Running test_item_operations...");
     let db_client = setup_db_client().await;
 
     // Create wishlist
