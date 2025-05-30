@@ -157,7 +157,8 @@ async fn delete_table(client: &DynamoDbClient) {
 }
 
 async fn setup_db_client() -> DynamoDbClient {
-    let endpoint = std::env::var("DYNAMODB_ENDPOINT").unwrap_or_else(|_| "http://host.containers.internal:8000".to_string());
+    let endpoint = std::env::var("DYNAMODB_ENDPOINT")
+        .unwrap_or_else(|_| "http://host.containers.internal:8000".to_string());
     let config = SdkConfig::builder()
         .endpoint_url(endpoint) // Use DynamoDB Local endpoint from env or default
         .region(aws_sdk_dynamodb::config::Region::new("eu-west-1")) // Specify a region
