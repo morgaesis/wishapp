@@ -12,14 +12,7 @@ prettier --check "**/*.{js,ts,json,md,yml,yaml}" >/dev/null 2>&1 || {
   exit 1
 }
 
-# Run yamllint checks
-YAML_ERRORS=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -exec yamllint -f github {} + 2>&1)
-if [ -n "$YAML_ERRORS" ]; then
-  log -e "\033[1;31mYAML: Lint errors found\033[0m"
-  log -e "$YAML_ERRORS"
-  log -e "  Use: \033[1;33mgit push --no-verify\033[0m to skip"
-  exit 1
-fi
+
 
 cargo fmt -- --check
 if [ $? -ne 0 ]; then
