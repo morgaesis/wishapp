@@ -1,25 +1,14 @@
 #!/bin/sh
-
-log() {
-  echo "$@" >&2
-}
-
-# Run Prettier formatting check
-prettier --check "**/*.{js,ts,json,md,yml,yaml}" >/dev/null 2>&1 || {
-  log -e "\033[1;31mPrettier: Formatting issues found\033[0m"
-  log -e "  Run: \033[1;33mprettier --write\033[0m to fix"
-  log -e "  Or use: \033[1;33mgit push --no-verify\033[0m to skip"
-  exit 1
-}
-
-# Run yamllint checks
-YAML_ERRORS=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -exec yamllint -f github {} + 2>&1)
-if [ -n "$YAML_ERRORS" ]; then
-  log -e "\033[1;31mYAML: Lint errors found\033[0m"
-  log -e "$YAML_ERRORS"
-  log -e "  Use: \033[1;33mgit push --no-verify\033[0m to skip"
+echo "Running pre-push hooks..."
+cargo fmt -- --check
+if [ $? -ne 0 ]; then
+  echo "Cargo format check failed. Please run cargo fmt."
   exit 1
 fi
+cargo clippy --all-targets -- -D warnings
+if [ $? -ne 0 ]; then
+  echo "Cargo clippy check failed. Please fix warnings/errors."
+  exit 1
+fi
+echo "Pre-push hooks passed."
 
-log -e "\033[1;32mOK: All pre-push checks passed\033[0m"
-exit 0
