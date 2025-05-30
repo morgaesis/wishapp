@@ -51,7 +51,7 @@ async fn main() -> Result<(), Error> {
     let config = if let Ok(endpoint_url) = endpoint {
         config_builder
             .endpoint_url(endpoint_url)
-            .behavior_version(aws_config::BehaviorVersion::v2023_11_09())
+            .behavior_version(aws_config::BehaviorVersion::latest())
             .credentials_provider(aws_credential_types::Credentials::for_tests())
             .region(aws_sdk_dynamodb::config::Region::new("us-east-1"))
             .load()
