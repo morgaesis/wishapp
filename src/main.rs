@@ -46,7 +46,13 @@ pub async fn handle_request(
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let config = aws_config::load_from_env().await;
+    let endpoint = std::env::var("DYNAMODB_ENDPOINT");
+    let config_builder = aws_config::from_env();
+    let config = if let Ok(endpoint_url) = endpoint {
+        config_builder.endpoint_url(endpoint_url).load().await
+    } else {
+        config_builder.load().await
+    };
     let db_client = DynamoDbClient::new(&config);
 
     #[cfg(not(feature = "aws_lambda"))]
