@@ -13,6 +13,13 @@ export class InfraStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: InfraStackProps) {
     super(scope, id, props);
 
+    // DynamoDB Table
+    const wishlistTable = new dynamodb.Table(this, "WishlistTable", {
+      tableName: "wishlist_table",
+      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // NOT recommended for production code
+    });
+
     // Lambda function
     const wishLambda = new lambda.Function(this, "WishHandler", {
       runtime: lambda.Runtime.PROVIDED_AL2,
@@ -24,13 +31,6 @@ export class InfraStack extends cdk.Stack {
         DUMMY_VAR: "1",
         TABLE_NAME: wishlistTable.tableName,
       },
-    });
-
-    // DynamoDB Table
-    const wishlistTable = new dynamodb.Table(this, "WishlistTable", {
-      tableName: "wishlist_table",
-      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
-      removalPolicy: cdk.RemovalPolicy.DESTROY, // NOT recommended for production code
     });
 
     // Grant Lambda permissions to read/write from the DynamoDB table

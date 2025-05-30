@@ -68,7 +68,7 @@ async fn create_table(client: &DynamoDbClient) {
         .expect("Failed to build AttributeDefinition");
 
     println!("Attempting to create table '{}'...", table_name);
-    client
+    let create_table_result = client
         .create_table()
         .table_name(table_name)
         .key_schema(key_schema)
@@ -81,8 +81,27 @@ async fn create_table(client: &DynamoDbClient) {
                 .expect("Failed to build ProvisionedThroughput"),
         )
         .send()
-        .await
-        .expect("Failed to create table");
+        .await;
+
+    match create_table_result {
+        Ok(_) => {
+            println!("Table '{}' created successfully.", table_name);
+        }
+        Err(e) => {
+            if let SdkError::ServiceError(service_error) = &e {
+                if service_error.err().is_resource_in_use_exception() {
+                    println!(
+                        "Table '{}' already exists. Proceeding with existing table.",
+                        table_name
+                    );
+                } else {
+                    panic!("Failed to create table: {:?}", e);
+                }
+            } else {
+                panic!("Failed to create table: {:?}", e);
+            }
+        }
+    }
     println!("Table '{}' creation initiated.", table_name);
     println!("Waiting for table '{}' to become active...", table_name);
     wait_for_table_status(
@@ -139,7 +158,7 @@ async fn delete_table(client: &DynamoDbClient) {
 
 async fn setup_db_client() -> DynamoDbClient {
     let config = SdkConfig::builder()
-        .endpoint_url("http://localhost:8000") // Use DynamoDB Local endpoint
+        .endpoint_url("http://host.containers.internal:8000") // Use DynamoDB Local endpoint
         .region(aws_sdk_dynamodb::config::Region::new("eu-west-1")) // Specify a region
         .behavior_version(aws_config::BehaviorVersion::latest()) // Explicitly set behavior version
         .credentials_provider(SharedCredentialsProvider::new(Credentials::for_tests())) // Use dummy credentials for local testing
