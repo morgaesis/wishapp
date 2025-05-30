@@ -49,7 +49,13 @@ async fn main() -> Result<(), Error> {
     let endpoint = std::env::var("DYNAMODB_ENDPOINT");
     let config_builder = aws_config::from_env();
     let config = if let Ok(endpoint_url) = endpoint {
-        config_builder.endpoint_url(endpoint_url).load().await
+        config_builder
+            .endpoint_url(endpoint_url)
+            .behavior_version(aws_config::BehaviorVersion::v2023_11_09())
+            .credentials_provider(aws_credential_types::Credentials::for_tests())
+            .region(aws_sdk_dynamodb::config::Region::new("us-east-1"))
+            .load()
+            .await
     } else {
         config_builder.load().await
     };
