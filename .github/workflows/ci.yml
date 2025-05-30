@@ -12,8 +12,6 @@ jobs:
         ports:
           - 8000:8000
         options: --health-cmd "curl http://localhost:8000" --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      DYNAMODB_ENDPOINT: http://localhost:8000
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +39,8 @@ jobs:
         run: cargo clean
 
       - name: Run cargo tests
+        env:
+          DYNAMODB_ENDPOINT: http://localhost:${{ job.services.dynamodb-local.ports['8000'] }}
         uses: actions-rs/cargo@v1
         with:
           command: test
