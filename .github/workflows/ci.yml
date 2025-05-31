@@ -6,6 +6,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      dynamodb-local:
+        image: amazon/dynamodb-local:latest
+        ports:
+          - 8000
+        options: --health-cmd "curl http://localhost:8000" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -29,7 +35,12 @@ jobs:
           components: rustfmt, clippy
           override: true
 
+      - name: Clean cargo target directory
+        run: cargo clean
+
       - name: Run cargo tests
+        env:
+          DYNAMODB_ENDPOINT: http://localhost:${{ job.services.dynamodb-local.ports['8000'] }}
         uses: actions-rs/cargo@v1
         with:
           command: test

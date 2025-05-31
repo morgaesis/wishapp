@@ -1,25 +1,33 @@
-#!/bin/sh
+#!/bin/bash
 
-log() {
-  echo "$@" >&2
+err() {
+  echo -e "\033[1;31m$*\033[0m" >&2
+}
+inf() {
+  echo -e "\033[1;33m$*\033[0m" >&2
 }
 
-# Run Prettier formatting check
-prettier --check "**/*.{js,ts,json,md,yml,yaml}" >/dev/null 2>&1 || {
-  log -e "\033[1;31mPrettier: Formatting issues found\033[0m"
-  log -e "  Run: \033[1;33mprettier --write\033[0m to fix"
-  log -e "  Or use: \033[1;33mgit push --no-verify\033[0m to skip"
-  exit 1
-}
-
-# Run yamllint checks
-YAML_ERRORS=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -exec yamllint -f github {} + 2>&1)
-if [ -n "$YAML_ERRORS" ]; then
-  log -e "\033[1;31mYAML: Lint errors found\033[0m"
-  log -e "$YAML_ERRORS"
-  log -e "  Use: \033[1;33mgit push --no-verify\033[0m to skip"
+if ! prettier --check "**/*.{js,ts,json,md,yml,yaml}" >/dev/null 2>&1; then
+  err "Prettier: Formatting issues found"
+  inf "  Run: prettier --write to fix"
+  inf "  Or use: git push --no-verify to skip"
   exit 1
 fi
 
-log -e "\033[1;32mOK: All pre-push checks passed\033[0m"
+if ! yamllint .; then
+  err "Yamllint: Formatting issues found"
+  exit 1
+fi
+
+if ! cargo fmt -- --check; then
+  err "Cargo format check failed. Please run cargo fmt."
+  exit 1
+fi
+
+if ! cargo clippy --all-targets -- -D warnings; then
+  err "Cargo clippy check failed. Please fix warnings/errors."
+  exit 1
+fi
+
 exit 0
+

@@ -1,31 +1,204 @@
+use aws_config::SdkConfig;
+use aws_credential_types::provider::SharedCredentialsProvider;
+use aws_credential_types::Credentials;
+use aws_sdk_dynamodb::error::SdkError;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 use lambda_http::{Body, Request};
 use serde_json::json;
 use wishlist_api::handlers::Wishlist;
 use wishlist_api::handlers::{handle_delete, handle_get, handle_post, handle_put};
 
+use tokio::time::{sleep, Duration};
+
+async fn wait_for_table_status(
+    client: &DynamoDbClient,
+    table_name: &str,
+    expected_status: aws_sdk_dynamodb::types::TableStatus,
+) {
+    for _ in 0..30 {
+        // Max 10 retries
+        let describe_table_result = client.describe_table().table_name(table_name).send().await;
+
+        match describe_table_result {
+            Ok(output) => {
+                if let Some(table) = output.table {
+                    if let Some(status) = table.table_status {
+                        if status == expected_status {
+                            println!(
+                                "Table '{}' is now in {:?} status.",
+                                table_name, expected_status
+                            );
+                            return;
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                if expected_status == aws_sdk_dynamodb::types::TableStatus::Deleting
+                    && e.to_string().contains("ResourceNotFoundException")
+                {
+                    println!("Table '{}' is already gone.", table_name);
+                    return;
+                }
+                eprintln!(
+                    "Error describing table '{}': {:?}. Retrying...",
+                    table_name, e
+                );
+            }
+        }
+        sleep(Duration::from_secs(1)).await; // Wait for 1 second before retrying
+    }
+    panic!(
+        "Table '{}' did not reach {:?} status in time.",
+        table_name, expected_status
+    );
+}
+
+async fn create_table(client: &DynamoDbClient) {
+    let table_name = "wishlist_table";
+    let key_schema = aws_sdk_dynamodb::types::KeySchemaElement::builder()
+        .attribute_name("id")
+        .key_type(aws_sdk_dynamodb::types::KeyType::Hash)
+        .build()
+        .expect("Failed to build KeySchemaElement");
+    let attribute_definition = aws_sdk_dynamodb::types::AttributeDefinition::builder()
+        .attribute_name("id")
+        .attribute_type(aws_sdk_dynamodb::types::ScalarAttributeType::S)
+        .build()
+        .expect("Failed to build AttributeDefinition");
+
+    println!("Attempting to create table '{}'...", table_name);
+    let create_table_result = client
+        .create_table()
+        .table_name(table_name)
+        .key_schema(key_schema)
+        .attribute_definitions(attribute_definition)
+        .provisioned_throughput(
+            aws_sdk_dynamodb::types::ProvisionedThroughput::builder()
+                .read_capacity_units(1)
+                .write_capacity_units(1)
+                .build()
+                .expect("Failed to build ProvisionedThroughput"),
+        )
+        .send()
+        .await;
+
+    match create_table_result {
+        Ok(_) => {
+            println!("Table '{}' created successfully.", table_name);
+        }
+        Err(e) => {
+            if let SdkError::ServiceError(service_error) = &e {
+                if service_error.err().is_resource_in_use_exception() {
+                    println!(
+                        "Table '{}' already exists. Proceeding with existing table.",
+                        table_name
+                    );
+                } else {
+                    panic!("Failed to create table: {:?}", e);
+                }
+            } else {
+                panic!("Failed to create table: {:?}", e);
+            }
+        }
+    }
+    println!("Table '{}' creation initiated.", table_name);
+    println!("Waiting for table '{}' to become active...", table_name);
+    wait_for_table_status(
+        client,
+        table_name,
+        aws_sdk_dynamodb::types::TableStatus::Active,
+    )
+    .await;
+}
+
+async fn wait_for_table_gone(client: &DynamoDbClient, table_name: &str) {
+    for _ in 0..30 {
+        // Max 10 retries
+        let describe_table_result = client.describe_table().table_name(table_name).send().await;
+
+        match describe_table_result {
+            Ok(_) => {
+                println!("Table '{}' still exists. Retrying...", table_name);
+            }
+            Err(e) => {
+                if let SdkError::ServiceError(service_error) = &e {
+                    if service_error.err().is_resource_not_found_exception() {
+                        println!("Table '{}' is now gone.", table_name);
+                        return;
+                    }
+                }
+                eprintln!(
+                    "Error describing table '{}': {:?}. Retrying...",
+                    table_name, e
+                );
+            }
+        }
+        sleep(Duration::from_secs(1)).await; // Wait for 1 second before retrying
+    }
+    panic!("Table '{}' did not disappear in time.", table_name);
+}
+
+async fn delete_table(client: &DynamoDbClient) {
+    let table_name = "wishlist_table";
+    match client.delete_table().table_name(table_name).send().await {
+        Ok(_) => {
+            println!("Table '{}' deletion initiated.", table_name);
+            wait_for_table_gone(client, table_name).await;
+        }
+        Err(e) => {
+            if e.to_string().contains("ResourceNotFoundException") {
+                println!("Table '{}' does not exist, no need to delete.", table_name);
+            } else {
+                eprintln!("Error deleting table '{}': {:?}", table_name, e);
+            }
+        }
+    }
+}
+
+async fn setup_db_client() -> DynamoDbClient {
+    let endpoint = std::env::var("DYNAMODB_ENDPOINT")
+        .unwrap_or_else(|_| "http://host.containers.internal:8000".to_string());
+    let config = SdkConfig::builder()
+        .endpoint_url(endpoint) // Use DynamoDB Local endpoint from env or default
+        .region(aws_sdk_dynamodb::config::Region::new("eu-west-1")) // Specify a region
+        .behavior_version(aws_config::BehaviorVersion::latest()) // Explicitly set behavior version
+        .credentials_provider(SharedCredentialsProvider::new(Credentials::for_tests())) // Use dummy credentials for local testing
+        .build();
+    let client = DynamoDbClient::new(&config);
+    println!("Setting up DynamoDB client. Deleting existing table (if any)...");
+    delete_table(&client).await; // Ensure clean state
+    println!("Creating fresh table...");
+    create_table(&client).await; // Create fresh table
+    println!("DynamoDB client setup complete.");
+    client
+}
+
 #[tokio::test]
 async fn test_health_check() {
+    println!("Running test_health_check...");
+    let db_client = setup_db_client().await;
     let mut event = Request::new(Body::Empty);
     *event.uri_mut() = "/health".parse().unwrap();
 
     println!("Request URI: {}", event.uri());
 
-    let response = handle_get(event).await.expect("expected Ok(_) value");
+    let response = handle_get(event, &db_client)
+        .await
+        .expect("expected Ok(_) value");
 
     assert_eq!(response.status(), 200);
     match response.body() {
-        Body::Text(text) => assert_eq!(text, "OK"),
+        Body::Text(text) => assert_eq!(text, "{\"status\":\"OK\"}"),
         _ => panic!("Expected text response body, got {:?}", response.body()),
     }
 }
 // Cleanup function moved to end of file for final cleanup
 #[tokio::test]
 async fn test_full_wishlist_lifecycle() {
-    // Clear and initialize storage
-    {
-        let mut wishlists = wishlist_api::handlers::WISHLISTS.lock().unwrap();
-        wishlists.clear();
-    }
+    println!("Running test_full_wishlist_lifecycle...");
+    let db_client = setup_db_client().await;
+
     // Test uses unique IDs so no initial cleanup needed
     let _check_req = Request::new(Body::Empty);
 
@@ -38,7 +211,7 @@ async fn test_full_wishlist_lifecycle() {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         let mut empty_req = Request::new(Body::Empty);
         *empty_req.uri_mut() = "/wishlists".parse().unwrap();
-        let empty_res = handle_get(empty_req).await.unwrap();
+        let empty_res = handle_get(empty_req, &db_client).await.unwrap();
         println!(
             "Empty verification attempt {}: {:?}",
             retries + 1,
@@ -56,7 +229,7 @@ async fn test_full_wishlist_lifecycle() {
     for wishlist in &empty_wishlists {
         if wishlist.id.starts_with("test-") {
             let delete_req = Request::new(Body::from(json!({"id": wishlist.id}).to_string()));
-            let _ = handle_delete(delete_req).await;
+            let _ = handle_delete(delete_req, &db_client).await;
         }
     }
 
@@ -75,13 +248,13 @@ async fn test_full_wishlist_lifecycle() {
         "items": ["Initial"]
     });
     let create_req = Request::new(Body::from(test_wishlist.to_string()));
-    let create_res = handle_post(create_req).await.unwrap();
+    let create_res = handle_post(create_req, &db_client).await.unwrap();
     assert_eq!(create_res.status(), 201, "Failed to create test wishlist");
 
     // Actively clean up any existing test wishlists
     let mut check_req = Request::new(Body::Empty);
     *check_req.uri_mut() = "/wishlists".parse().unwrap();
-    let check_res = handle_get(check_req).await.unwrap();
+    let check_res = handle_get(check_req, &db_client).await.unwrap();
     let wishlists = if check_res.status() == 200 {
         serde_json::from_slice::<Vec<Wishlist>>(check_res.body()).unwrap_or_default()
     } else {
@@ -91,14 +264,14 @@ async fn test_full_wishlist_lifecycle() {
         if wishlist.id.starts_with("test-") || wishlist.id == "test-id-2" {
             let mut delete_req = Request::new(Body::Empty);
             *delete_req.uri_mut() = format!("/wishlists/{}/", wishlist.id).parse().unwrap();
-            let _ = handle_delete(delete_req).await.unwrap();
+            let _ = handle_delete(delete_req, &db_client).await.unwrap();
         }
     }
 
     // 1. Thorough cleanup of any existing test wishlists
     let mut cleanup_req = Request::new(Body::Empty);
     *cleanup_req.uri_mut() = "/wishlists".parse().unwrap();
-    let cleanup_res = handle_get(cleanup_req).await.unwrap();
+    let cleanup_res = handle_get(cleanup_req, &db_client).await.unwrap();
     assert_eq!(cleanup_res.status(), 200);
     let existing_wishlists: Vec<Wishlist> = serde_json::from_slice(cleanup_res.body()).unwrap();
 
@@ -115,7 +288,7 @@ async fn test_full_wishlist_lifecycle() {
                 let mut delete_req =
                     Request::new(Body::from(json!({"id": wishlist.id}).to_string()));
                 *delete_req.uri_mut() = format!("/wishlists/{}", wishlist.id).parse().unwrap();
-                match handle_delete(delete_req).await {
+                match handle_delete(delete_req, &db_client).await {
                     Ok(res) if res.status() == 200 => break,
                     _ => tokio::time::sleep(std::time::Duration::from_millis(100)).await,
                 }
@@ -135,7 +308,7 @@ async fn test_full_wishlist_lifecycle() {
         })
         .to_string(),
     ));
-    let create_res = handle_post(create_req).await.unwrap();
+    let create_res = handle_post(create_req, &db_client).await.unwrap();
     assert_eq!(create_res.status(), 201);
     let created: Wishlist = serde_json::from_slice(create_res.body()).unwrap();
     assert_eq!(created.owner, "Christmas Owner");
@@ -144,7 +317,7 @@ async fn test_full_wishlist_lifecycle() {
     // 3. Verify wishlist appears in GET
     let mut get_req = Request::new(Body::Empty);
     *get_req.uri_mut() = "/wishlists".parse().unwrap();
-    let get_res = handle_get(get_req).await.unwrap();
+    let get_res = handle_get(get_req, &db_client).await.unwrap();
     println!("[DEBUG] GET response body: {:?}", get_res.body());
     let body = get_res.body();
     let wishlists: Vec<Wishlist> = serde_json::from_slice(body)
@@ -166,15 +339,9 @@ async fn test_full_wishlist_lifecycle() {
         "[DEBUG] Update request payload: {}",
         String::from_utf8_lossy(update_req.body().as_ref())
     );
-    let update_res = handle_put(update_req).await.unwrap();
+    let update_res = handle_put(update_req, &db_client).await.unwrap();
     assert_eq!(update_res.status(), 200);
     println!("Update response body: {:?}", update_res.body().as_ref());
-
-    // Debug storage state immediately after update
-    {
-        let wishlists = wishlist_api::handlers::WISHLISTS.lock().unwrap();
-        println!("Immediate post-update storage state: {:?}", *wishlists);
-    }
 
     let updated: Wishlist = if update_res.body().is_empty() {
         panic!("Received empty response body when expecting updated wishlist");
@@ -190,7 +357,7 @@ async fn test_full_wishlist_lifecycle() {
     println!("GET request URI: {}", uri);
     let mut get_req = Request::new(Body::Empty);
     *get_req.uri_mut() = uri.parse().unwrap();
-    let get_updated = handle_get(get_req).await.unwrap();
+    let get_updated = handle_get(get_req, &db_client).await.unwrap();
     println!("GET response status: {}", get_updated.status());
     println!("GET response body: {:?}", get_updated.body().as_ref());
 
@@ -205,11 +372,6 @@ async fn test_full_wishlist_lifecycle() {
         .unwrap_or_else(|_| panic!("Failed to parse wishlist from: {}", body_str));
     println!("Updated wishlist: {:?}", updated_wishlist);
 
-    // Debug: Print current storage state
-    {
-        let wishlists = wishlist_api::handlers::WISHLISTS.lock().unwrap();
-        println!("Current storage state: {:?}", *wishlists);
-    }
     assert_eq!(updated_wishlist.owner, "Updated Christmas Owner");
     assert_eq!(updated_wishlist.items.len(), 3);
     assert_eq!(
@@ -224,11 +386,13 @@ async fn test_full_wishlist_lifecycle() {
 
     // 6. Delete the wishlist
     let delete_req = Request::new(Body::from(json!({"id": created.id}).to_string()));
-    let delete_res = handle_delete(delete_req).await.unwrap();
-    assert_eq!(delete_res.status(), 200);
+    let delete_res = handle_delete(delete_req, &db_client).await.unwrap();
+    assert_eq!(delete_res.status(), 204);
 
     // 7. Verify deletion
-    let final_get = handle_get(Request::new(Body::Empty)).await.unwrap();
+    let final_get = handle_get(Request::new(Body::Empty), &db_client)
+        .await
+        .unwrap();
     match final_get.status().as_u16() {
         200 => {
             let body = final_get.body();
@@ -248,7 +412,9 @@ async fn test_full_wishlist_lifecycle() {
 
 #[tokio::test]
 async fn test_item_operations() {
-    // Test uses unique IDs so no initial cleanup needed
+    println!("Running test_item_operations...");
+    let db_client = setup_db_client().await;
+
     // Create wishlist
     let create_req = Request::new(Body::from(
         json!({
@@ -259,7 +425,7 @@ async fn test_item_operations() {
         })
         .to_string(),
     ));
-    let create_res = handle_post(create_req).await.unwrap();
+    let create_res = handle_post(create_req, &db_client).await.unwrap();
     println!("[DEBUG] Create response: {:?}", create_res.body());
     let wishlist: Wishlist = if create_res.status() == 201 {
         serde_json::from_slice(create_res.body()).expect("Failed to parse wishlist")
@@ -277,7 +443,7 @@ async fn test_item_operations() {
         })
         .to_string(),
     ));
-    let add_item_res = handle_put(add_item_req).await.unwrap();
+    let add_item_res = handle_put(add_item_req, &db_client).await.unwrap();
     assert_eq!(add_item_res.status(), 200);
     let updated: Wishlist = serde_json::from_slice(add_item_res.body()).unwrap();
     assert_eq!(updated.items, vec!["Initial", "Added"]);
@@ -292,7 +458,7 @@ async fn test_item_operations() {
         })
         .to_string(),
     ));
-    let remove_item_res = handle_put(remove_item_req).await.unwrap();
+    let remove_item_res = handle_put(remove_item_req, &db_client).await.unwrap();
     assert_eq!(remove_item_res.status(), 200);
     let final_state: Wishlist = serde_json::from_slice(remove_item_res.body()).unwrap();
     assert_eq!(final_state.items.len(), 1);
@@ -303,7 +469,8 @@ async fn test_item_operations() {
 async fn test_error_handling() {
     // Invalid JSON
     let invalid_json = Request::new(Body::from("invalid json"));
-    let res = handle_post(invalid_json).await;
+    let db_client = setup_db_client().await;
+    let res = handle_post(invalid_json, &db_client).await;
     assert!(res.is_err());
 
     // Nonexistent wishlist operations
@@ -317,10 +484,10 @@ async fn test_error_handling() {
         })
         .to_string(),
     ));
-    let update_res = handle_put(update_req).await.unwrap();
+    let update_res = handle_put(update_req, &db_client).await.unwrap();
     assert_eq!(update_res.status(), 404);
 
     let delete_req = Request::new(Body::from(json!({"id": fake_id}).to_string()));
-    let delete_res = handle_delete(delete_req).await.unwrap();
+    let delete_res = handle_delete(delete_req, &db_client).await.unwrap();
     assert_eq!(delete_res.status(), 404);
 }
