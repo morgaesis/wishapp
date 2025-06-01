@@ -262,8 +262,9 @@ async fn test_full_wishlist_lifecycle() {
     };
     for wishlist in wishlists {
         if wishlist.id.starts_with("test-") || wishlist.id == "test-id-2" {
-            let mut delete_req = Request::new(Body::Empty);
-            *delete_req.uri_mut() = format!("/wishlists/{}/", wishlist.id).parse().unwrap();
+            let delete_body = serde_json::json!({ "id": wishlist.id }).to_string();
+            let mut delete_req = Request::new(Body::Text(delete_body));
+            *delete_req.uri_mut() = "/wishlists".parse().unwrap(); // The handler expects /wishlists for DELETE
             let _ = handle_delete(delete_req, &db_client).await.unwrap();
         }
     }
