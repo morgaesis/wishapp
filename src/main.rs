@@ -1,65 +1,24 @@
+use log::{info, error};
+use env_logger;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use lambda_http::{Body, Error, Request, Response};
-mod handlers;
-use handlers::{handle_delete, handle_get, handle_post, handle_put};
+use lambda_http::{Body, Request, Response};
+use crate::error::AppError;
+use crate::handlers::handle_request;
 
-#[derive(Debug)]
-struct AppError(Box<dyn std::error::Error + Send + Sync + 'static>);
 
-impl std::fmt::Display for AppError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
 
-impl std::error::Error for AppError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.0.source()
-    }
-}
 
-impl From<lambda_http::Error> for AppError {
-    fn from(err: lambda_http::Error) -> Self {
-        AppError(err)
-    }
-}
-impl From<hyper::Error> for AppError {
-    fn from(err: hyper::Error) -> Self {
-        AppError(Box::new(err))
-    }
-}
 
-pub async fn handle_request(
-    event: Request,
-    db_client: &DynamoDbClient,
-) -> Result<Response<Body>, Error> {
-    match event.method().as_str() {
-        "GET" => handle_get(event, db_client).await,
-        "POST" => handle_post(event, db_client).await,
-        "PUT" => handle_put(event, db_client).await,
-        "DELETE" => handle_delete(event, db_client).await,
-        _ => Ok(Response::builder()
-            .status(405)
-            .body("Method Not Allowed".into())?),
-    }
-}
+
+
+
+
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
-    let endpoint = std::env::var("DYNAMODB_ENDPOINT");
-    let config_builder = aws_config::from_env();
-    let config = if let Ok(endpoint_url) = endpoint {
-        config_builder
-            .endpoint_url(endpoint_url)
-            .behavior_version(aws_config::BehaviorVersion::latest())
-            .credentials_provider(aws_credential_types::Credentials::for_tests())
-            .region(aws_sdk_dynamodb::config::Region::new("us-east-1"))
-            .load()
-            .await
-    } else {
-        config_builder.load().await
-    };
-    let db_client = DynamoDbClient::new(&config);
+async fn main() -> Result<(), AppError> {
+    env_logger::init();
+    use crate::db::get_db_client;
+    let db_client = get_db_client().await;
 
     #[cfg(not(feature = "aws_lambda"))]
     {
@@ -106,7 +65,7 @@ async fn main() -> Result<(), Error> {
                     )
                     .await
                 {
-                    eprintln!("Error serving connection: {:?}", err);
+                    error!("Error serving connection: {:?}", err);
                 }
             });
         }
@@ -117,6 +76,6 @@ async fn main() -> Result<(), Error> {
         lambda_http::run(lambda_http::service_fn(|event| {
             handle_request(event, &db_client)
         }))
-        .await
+        .await.map_err(AppError::from)?
     }
 }
