@@ -1,12 +1,11 @@
+use lambda_http::http::StatusCode;
+use lambda_http::{Body, Request, Response};
 use log::{error, info};
 use serde_json::json;
-use lambda_http::{Body, Request, Response};
-use lambda_http::http::StatusCode;
 
 pub mod wishlist;
 
 pub use crate::handlers::wishlist::Wishlist;
-
 
 use crate::error::AppError;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
@@ -50,10 +49,7 @@ pub async fn handle_get(
             Ok(wishlists) => build_response(StatusCode::OK, Some(wishlists)),
             Err(e) => {
                 error!("Error scanning DynamoDB: {:?}", e);
-                build_error_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal Server Error",
-                )
+                build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
             }
         },
         path if path.starts_with("/wishlists/") => {
@@ -63,10 +59,7 @@ pub async fn handle_get(
                 Ok(None) => build_error_response(StatusCode::NOT_FOUND, "Not Found"),
                 Err(e) => {
                     error!("Error getting item from DynamoDB: {:?}", e);
-                    build_error_response(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "Internal Server Error",
-                    )
+                    build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
                 }
             }
         }
@@ -86,10 +79,7 @@ pub async fn handle_post(
         Ok(_) => build_response(StatusCode::CREATED, Some(wishlist)),
         Err(e) => {
             error!("Error putting item to DynamoDB: {:?}", e);
-            build_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal Server Error",
-            )
+            build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
         }
     }
 }
@@ -109,20 +99,14 @@ pub async fn handle_put(
                 Ok(_) => build_response(StatusCode::OK, Some(updated)),
                 Err(e) => {
                     error!("Error updating item in DynamoDB: {:?}", e);
-                    build_error_response(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "Internal Server Error",
-                    )
+                    build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
                 }
             }
         }
         Ok(None) => build_error_response(StatusCode::NOT_FOUND, "Not Found"),
         Err(e) => {
             error!("Error checking item existence in DynamoDB: {:?}", e);
-            build_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal Server Error",
-            )
+            build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
         }
     }
 }
@@ -150,10 +134,7 @@ pub async fn handle_delete(
                 Ok(_) => build_response::<()>(StatusCode::NO_CONTENT, None),
                 Err(e) => {
                     error!("Error deleting item from DynamoDB: {:?}", e);
-                    build_error_response(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "Internal Server Error",
-                    )
+                    build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
                 }
             }
         }
@@ -163,10 +144,7 @@ pub async fn handle_delete(
                 "Error checking item existence for deletion in DynamoDB: {:?}",
                 e
             );
-            build_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal Server Error",
-            )
+            build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
         }
     }
 }

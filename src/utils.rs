@@ -1,7 +1,7 @@
-use lambda_http::{Body, Response};
-use lambda_http::http::StatusCode;
-use serde::Serialize;
 use crate::error::AppError;
+use lambda_http::http::StatusCode;
+use lambda_http::{Body, Response};
+use serde::Serialize;
 use serde_json::json;
 
 pub fn build_response<T: Serialize>(

@@ -11,8 +11,9 @@ async fn main() -> Result<(), AppError> {
 
     #[cfg(not(feature = "aws_lambda"))]
     {
-        #[allow(unused_imports)] use lambda_http::{Body, Request, Response}; // Moved here
-        // Local server code
+        #[allow(unused_imports)]
+        use lambda_http::{Body, Request, Response}; // Moved here
+                                                    // Local server code
         use bytes::Bytes;
         use http_body_util::Full;
         use hyper::server::conn::http1;

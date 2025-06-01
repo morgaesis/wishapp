@@ -1,8 +1,8 @@
+use aws_smithy_runtime_api;
 use lambda_http::http::StatusCode;
 use lambda_http::Body;
 use lambda_http::Response;
 use thiserror::Error;
-use aws_smithy_runtime_api;
 
 #[derive(Error, Debug)]
 pub enum AppError {
