@@ -1,16 +1,18 @@
-use log::{info, error};
+use log::{error, info};
+use serde_json::json;
+use lambda_http::{Body, Request, Response};
+use lambda_http::http::StatusCode;
+
 pub mod wishlist;
 
 pub use crate::handlers::wishlist::Wishlist;
 
-use crate::db::TABLE_NAME;
-use aws_sdk_dynamodb::Client as DynamoDbClient;
-use lambda_http::{Body, Request, Response};
+
 use crate::error::AppError;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 
+use crate::utils::{build_error_response, build_response};
 
-use crate::utils::{build_response, build_error_response};
-use http::StatusCode;
 pub async fn handle_request(
     event: Request,
     db_client: &DynamoDbClient,
@@ -30,7 +32,7 @@ pub async fn handle_request(
         ("DELETE", "/wishlists") => handle_delete(event, db_client).await,
         _ => {
             error!("Unhandled request: {} {}", method, path);
-            Ok(build_error_response(StatusCode::NOT_FOUND, "Not Found"))
+            build_error_response(StatusCode::NOT_FOUND, "Not Found")
         }
     }
 }
@@ -44,27 +46,31 @@ pub async fn handle_get(
     info!("[DEBUG] Cleaned GET request path: {}", cleaned_path);
     match cleaned_path {
         "/health" => build_response(StatusCode::OK, Some(json!({"status": "OK"}))),
-        "/wishlists" | "/wishlist" => {
-            match crate::db::scan_items(db_client).await {
-                Ok(wishlists) => build_response(StatusCode::OK, Some(wishlists)),
-                Err(e) => {
-                    error!("Error scanning DynamoDB: {:?}", e);
-                    Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"))
-                }
+        "/wishlists" | "/wishlist" => match crate::db::scan_items(db_client).await {
+            Ok(wishlists) => build_response(StatusCode::OK, Some(wishlists)),
+            Err(e) => {
+                error!("Error scanning DynamoDB: {:?}", e);
+                build_error_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal Server Error",
+                )
             }
-        }
+        },
         path if path.starts_with("/wishlists/") => {
             let id = path.trim_start_matches("/wishlists/").trim_end_matches('/');
             match crate::db::get_item(db_client, id.to_string()).await {
                 Ok(Some(wishlist)) => build_response(StatusCode::OK, Some(wishlist)),
-                Ok(None) => Ok(build_error_response(StatusCode::NOT_FOUND, "Not Found")),
+                Ok(None) => build_error_response(StatusCode::NOT_FOUND, "Not Found"),
                 Err(e) => {
                     error!("Error getting item from DynamoDB: {:?}", e);
-                    Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"))
+                    build_error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal Server Error",
+                    )
                 }
             }
         }
-        _ => Ok(build_error_response(StatusCode::NOT_FOUND, "Not Found")),
+        _ => build_error_response(StatusCode::NOT_FOUND, "Not Found"),
     }
 }
 
@@ -80,7 +86,10 @@ pub async fn handle_post(
         Ok(_) => build_response(StatusCode::CREATED, Some(wishlist)),
         Err(e) => {
             error!("Error putting item to DynamoDB: {:?}", e);
-            Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"))
+            build_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+            )
         }
     }
 }
@@ -100,14 +109,20 @@ pub async fn handle_put(
                 Ok(_) => build_response(StatusCode::OK, Some(updated)),
                 Err(e) => {
                     error!("Error updating item in DynamoDB: {:?}", e);
-                    Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"))
+                    build_error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal Server Error",
+                    )
                 }
             }
         }
-        Ok(None) => Ok(build_error_response(StatusCode::NOT_FOUND, "Not Found")),
+        Ok(None) => build_error_response(StatusCode::NOT_FOUND, "Not Found"),
         Err(e) => {
             error!("Error checking item existence in DynamoDB: {:?}", e);
-            Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"))
+            build_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+            )
         }
     }
 }
@@ -119,16 +134,12 @@ pub async fn handle_delete(
     let body = event.body().as_ref();
     let id_map: std::collections::HashMap<String, String> = match serde_json::from_slice(body) {
         Ok(map) => map,
-        Err(e) => {
-            return Err(AppError::from(e))
-        }
+        Err(e) => return Err(AppError::from(e)),
     };
 
     let id = match id_map.get("id") {
         Some(id) => id,
-        None => {
-            return Err(AppError::MissingId)
-        }
+        None => return Err(AppError::MissingId),
     };
 
     // Check if the item exists before attempting to delete
@@ -136,20 +147,26 @@ pub async fn handle_delete(
         Ok(Some(_)) => {
             // Item found, proceed with delete
             match crate::db::delete_item(db_client, id.to_string()).await {
-                Ok(_) => build_response(StatusCode::NO_CONTENT, None),
+                Ok(_) => build_response::<()>(StatusCode::NO_CONTENT, None),
                 Err(e) => {
                     error!("Error deleting item from DynamoDB: {:?}", e);
-                    Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"))
+                    build_error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal Server Error",
+                    )
                 }
             }
         }
-        Ok(None) => Ok(build_error_response(StatusCode::NOT_FOUND, "Not Found")),
+        Ok(None) => build_error_response(StatusCode::NOT_FOUND, "Not Found"),
         Err(e) => {
             error!(
                 "Error checking item existence for deletion in DynamoDB: {:?}",
                 e
             );
-            Ok(build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"))
+            build_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+            )
         }
     }
 }

@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "actionlint": "^2.0.6"
+    "actionlint": "^2.0.6",
+    "prettier": "^3.5.3"
   }
 }

@@ -1,8 +1,6 @@
-use aws_sdk_dynamodb::Client as DynamoDbClient;
-use aws_sdk_dynamodb::types::AttributeValue;
-use lambda_http::{Body, Request, Response};
 use crate::error::AppError;
-use serde_json::json;
+use aws_sdk_dynamodb::types::AttributeValue;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 
 pub const TABLE_NAME: &str = "wishlist_table";
 
@@ -38,7 +36,7 @@ pub async fn get_item(client: &DynamoDbClient, id: String) -> Result<Option<Wish
             Ok(wishlist) => Ok(Some(wishlist)),
             Err(e) => {
                 error!("Error converting item to Wishlist: {:?}", e);
-                Err(Box::new(e))
+                Err(AppError::from(e.to_string()))
             }
         }
     } else {

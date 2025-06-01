@@ -1,7 +1,7 @@
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use lambda_http::{http, Body};
 use serial_test::serial;
-use wishlist_api::handle_request;
+use wishlist_api::handlers::handle_request;
 
 async fn setup_db_client() -> DynamoDbClient {
     let config = aws_config::load_from_env().await;

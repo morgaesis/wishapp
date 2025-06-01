@@ -1,27 +1,17 @@
-use log::{info, error};
-use env_logger;
-use aws_sdk_dynamodb::Client as DynamoDbClient;
-use lambda_http::{Body, Request, Response};
-use crate::error::AppError;
-use crate::handlers::handle_request;
+use wishlist_api::error::AppError;
+use wishlist_api::handlers::handle_request;
 
-
-
-
-
-
-
-
-
+use log::error;
 
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
     env_logger::init();
-    use crate::db::get_db_client;
+    use wishlist_api::db::get_db_client;
     let db_client = get_db_client().await;
 
     #[cfg(not(feature = "aws_lambda"))]
     {
+        #[allow(unused_imports)] use lambda_http::{Body, Request, Response}; // Moved here
         // Local server code
         use bytes::Bytes;
         use http_body_util::Full;
@@ -58,7 +48,7 @@ async fn main() -> Result<(), AppError> {
                                         let hyper_resp_body = Full::new(Bytes::from(body.to_vec()));
                                         Ok(hyper::Response::from_parts(parts, hyper_resp_body))
                                     }
-                                    Err(e) => Err(AppError::from(e)),
+                                    Err(e) => Err(e),
                                 }
                             }
                         }),
@@ -76,6 +66,7 @@ async fn main() -> Result<(), AppError> {
         lambda_http::run(lambda_http::service_fn(|event| {
             handle_request(event, &db_client)
         }))
-        .await.map_err(AppError::from)?
+        .await
+        .map_err(AppError::from)?
     }
 }
