@@ -1,137 +1,85 @@
+use lambda_http::http::StatusCode;
+use lambda_http::{Body, Request, Response};
+use log::{error, info};
+use serde_json::json;
+
 pub mod wishlist;
 
 pub use crate::handlers::wishlist::Wishlist;
 
-const TABLE_NAME: &str = "wishlist_table";
+use crate::error::AppError;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use lambda_http::{Body, Error, Request, Response};
-use serde_json::json;
 
+use crate::utils::{build_error_response, build_response};
+
+pub async fn handle_request(
+    event: Request,
+    db_client: &DynamoDbClient,
+) -> Result<Response<Body>, AppError> {
+    let path = event.uri().path();
+    let method = event.method();
+
+    info!("[DEBUG] Request path: {}", path);
+    info!("[DEBUG] Request method: {}", method);
+
+    let cleaned_path = path.trim_start_matches("/prod"); // Remove /prod prefix
+
+    match (method.as_str(), cleaned_path) {
+        ("GET", _) => handle_get(event, db_client).await,
+        ("POST", "/wishlists") => handle_post(event, db_client).await,
+        ("PUT", "/wishlists") => handle_put(event, db_client).await,
+        ("DELETE", "/wishlists") => handle_delete(event, db_client).await,
+        _ => {
+            error!("Unhandled request: {} {}", method, path);
+            build_error_response(StatusCode::NOT_FOUND, "Not Found")
+        }
+    }
+}
 pub async fn handle_get(
     event: Request,
     db_client: &DynamoDbClient,
-) -> Result<Response<Body>, Error> {
+) -> Result<Response<Body>, AppError> {
     let path = event.uri().path();
     let cleaned_path = path.trim_start_matches("/prod"); // Remove /prod prefix
-    println!("[DEBUG] GET request path: {}", path);
-    println!("[DEBUG] Cleaned GET request path: {}", cleaned_path);
+    info!("[DEBUG] GET request path: {}", path);
+    info!("[DEBUG] Cleaned GET request path: {}", cleaned_path);
     match cleaned_path {
-        "/health" => Ok(Response::builder()
-            .status(200)
-            .header("Content-Type", "application/json")
-            .body(serde_json::to_string(&json!({"status": "OK"}))?.into())?),
-        "/wishlists" | "/wishlist" => {
-            let scan_output = db_client.scan().table_name(TABLE_NAME).send().await;
-            match scan_output {
-                Ok(output) => {
-                    let wishlists: Vec<Wishlist> = output
-                        .items
-                        .unwrap_or_default()
-                        .into_iter()
-                        .filter_map(|item| Wishlist::try_from(item).ok())
-                        .collect();
-                    Ok(Response::builder()
-                        .status(200)
-                        .header("Content-Type", "application/json")
-                        .body(serde_json::to_string(&wishlists)?.into())?)
-                }
-                Err(e) => {
-                    eprintln!("Error scanning DynamoDB: {:?}", e);
-                    Ok(Response::builder()
-                        .status(500)
-                        .body("Internal Server Error".into())?)
-                }
+        "/health" => build_response(StatusCode::OK, Some(json!({"status": "OK"}))),
+        "/wishlists" | "/wishlist" => match crate::db::scan_items(db_client).await {
+            Ok(wishlists) => build_response(StatusCode::OK, Some(wishlists)),
+            Err(e) => {
+                error!("Error scanning DynamoDB: {:?}", e);
+                build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
             }
-        }
+        },
         path if path.starts_with("/wishlists/") => {
             let id = path.trim_start_matches("/wishlists/").trim_end_matches('/');
-            let get_item_output = db_client
-                .get_item()
-                .table_name(TABLE_NAME)
-                .key(
-                    "id",
-                    aws_sdk_dynamodb::types::AttributeValue::S(id.to_string()),
-                )
-                .send()
-                .await;
-
-            match get_item_output {
-                Ok(output) => {
-                    if let Some(item) = output.item {
-                        match Wishlist::try_from(item) {
-                            Ok(wishlist) => Ok(Response::builder()
-                                .status(200)
-                                .header("Content-Type", "application/json")
-                                .body(serde_json::to_string(&wishlist)?.into())?),
-                            Err(e) => {
-                                eprintln!("Error converting item to Wishlist: {:?}", e);
-                                Ok(Response::builder()
-                                    .status(500)
-                                    .body("Internal Server Error".into())?)
-                            }
-                        }
-                    } else {
-                        Ok(Response::builder().status(404).body("Not Found".into())?)
-                    }
-                }
+            match crate::db::get_item(db_client, id.to_string()).await {
+                Ok(Some(wishlist)) => build_response(StatusCode::OK, Some(wishlist)),
+                Ok(None) => build_error_response(StatusCode::NOT_FOUND, "Not Found"),
                 Err(e) => {
-                    eprintln!("Error getting item from DynamoDB: {:?}", e);
-                    Ok(Response::builder()
-                        .status(500)
-                        .body("Internal Server Error".into())?)
+                    error!("Error getting item from DynamoDB: {:?}", e);
+                    build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
                 }
             }
         }
-        _ => Ok(Response::builder().status(404).body("Not Found".into())?),
+        _ => build_error_response(StatusCode::NOT_FOUND, "Not Found"),
     }
 }
 
 pub async fn handle_post(
     event: Request,
     db_client: &DynamoDbClient,
-) -> Result<Response<Body>, Error> {
+) -> Result<Response<Body>, AppError> {
     let body = event.body().as_ref();
-    println!("[DEBUG] POST body: {:?}", String::from_utf8_lossy(body));
+    info!("[DEBUG] POST body: {:?}", String::from_utf8_lossy(body));
     let wishlist: Wishlist = serde_json::from_slice(body)?;
-    println!("[DEBUG] Parsed wishlist: {:?}", wishlist);
-    let put_item_output = db_client
-        .put_item()
-        .table_name(TABLE_NAME)
-        .item(
-            "id",
-            aws_sdk_dynamodb::types::AttributeValue::S(wishlist.id.clone()),
-        )
-        .item(
-            "name",
-            aws_sdk_dynamodb::types::AttributeValue::S(wishlist.name.clone()),
-        )
-        .item(
-            "owner",
-            aws_sdk_dynamodb::types::AttributeValue::S(wishlist.owner.clone()),
-        )
-        .item(
-            "items",
-            aws_sdk_dynamodb::types::AttributeValue::L(
-                wishlist
-                    .items
-                    .iter()
-                    .map(|item| aws_sdk_dynamodb::types::AttributeValue::S(item.clone()))
-                    .collect(),
-            ),
-        )
-        .send()
-        .await;
-
-    match put_item_output {
-        Ok(_) => Ok(Response::builder()
-            .status(201)
-            .header("Content-Type", "application/json")
-            .body(serde_json::to_string(&wishlist)?.into())?),
+    info!("[DEBUG] Parsed wishlist: {:?}", wishlist);
+    match crate::db::put_item(db_client, wishlist.clone()).await {
+        Ok(_) => build_response(StatusCode::CREATED, Some(wishlist)),
         Err(e) => {
-            eprintln!("Error putting item to DynamoDB: {:?}", e);
-            Ok(Response::builder()
-                .status(500)
-                .body("Internal Server Error".into())?)
+            error!("Error putting item to DynamoDB: {:?}", e);
+            build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
         }
     }
 }
@@ -139,74 +87,26 @@ pub async fn handle_post(
 pub async fn handle_put(
     event: Request,
     db_client: &DynamoDbClient,
-) -> Result<Response<Body>, Error> {
+) -> Result<Response<Body>, AppError> {
     let updated: Wishlist = serde_json::from_slice(event.body().as_ref())?;
-    println!("[DEBUG] Updating wishlist with ID: {}", updated.id);
+    info!("[DEBUG] Updating wishlist with ID: {}", updated.id);
 
     // Check if the item exists before attempting to update
-    let get_item_output = db_client
-        .get_item()
-        .table_name(TABLE_NAME)
-        .key(
-            "id",
-            aws_sdk_dynamodb::types::AttributeValue::S(updated.id.clone()),
-        )
-        .send()
-        .await;
-
-    match get_item_output {
-        Ok(output) => {
-            if output.item.is_none() {
-                // Item not found, return 404
-                return Ok(Response::builder().status(404).body("Not Found".into())?);
-            }
+    match crate::db::get_item(db_client, updated.id.clone()).await {
+        Ok(Some(_)) => {
             // Item found, proceed with put_item
-            let put_item_output = db_client
-                .put_item()
-                .table_name(TABLE_NAME)
-                .item(
-                    "id",
-                    aws_sdk_dynamodb::types::AttributeValue::S(updated.id.clone()),
-                )
-                .item(
-                    "name",
-                    aws_sdk_dynamodb::types::AttributeValue::S(updated.name.clone()),
-                )
-                .item(
-                    "owner",
-                    aws_sdk_dynamodb::types::AttributeValue::S(updated.owner.clone()),
-                )
-                .item(
-                    "items",
-                    aws_sdk_dynamodb::types::AttributeValue::L(
-                        updated
-                            .items
-                            .iter()
-                            .map(|item| aws_sdk_dynamodb::types::AttributeValue::S(item.clone()))
-                            .collect(),
-                    ),
-                )
-                .send()
-                .await;
-
-            match put_item_output {
-                Ok(_) => Ok(Response::builder()
-                    .status(200)
-                    .header("Content-Type", "application/json")
-                    .body(serde_json::to_string(&updated)?.into())?),
+            match crate::db::put_item(db_client, updated.clone()).await {
+                Ok(_) => build_response(StatusCode::OK, Some(updated)),
                 Err(e) => {
-                    eprintln!("Error updating item in DynamoDB: {:?}", e);
-                    Ok(Response::builder()
-                        .status(500)
-                        .body("Internal Server Error".into())?)
+                    error!("Error updating item in DynamoDB: {:?}", e);
+                    build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
                 }
             }
         }
+        Ok(None) => build_error_response(StatusCode::NOT_FOUND, "Not Found"),
         Err(e) => {
-            eprintln!("Error checking item existence in DynamoDB: {:?}", e);
-            Ok(Response::builder()
-                .status(500)
-                .body("Internal Server Error".into())?)
+            error!("Error checking item existence in DynamoDB: {:?}", e);
+            build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
         }
     }
 }
@@ -214,72 +114,37 @@ pub async fn handle_put(
 pub async fn handle_delete(
     event: Request,
     db_client: &DynamoDbClient,
-) -> Result<Response<Body>, Error> {
+) -> Result<Response<Body>, AppError> {
     let body = event.body().as_ref();
     let id_map: std::collections::HashMap<String, String> = match serde_json::from_slice(body) {
         Ok(map) => map,
-        Err(_) => {
-            return Ok(Response::builder()
-                .status(400)
-                .body(Body::from("Invalid request body"))?)
-        }
+        Err(e) => return Err(AppError::from(e)),
     };
 
     let id = match id_map.get("id") {
         Some(id) => id,
-        None => {
-            return Ok(Response::builder()
-                .status(400)
-                .body(Body::from("Missing id in request body"))?)
-        }
+        None => return Err(AppError::MissingId),
     };
 
     // Check if the item exists before attempting to delete
-    let get_item_output = db_client
-        .get_item()
-        .table_name(TABLE_NAME)
-        .key(
-            "id",
-            aws_sdk_dynamodb::types::AttributeValue::S(id.to_string()),
-        )
-        .send()
-        .await;
-
-    match get_item_output {
-        Ok(output) => {
-            if output.item.is_none() {
-                // Item not found, return 404
-                return Ok(Response::builder().status(404).body("Not Found".into())?);
-            }
+    match crate::db::get_item(db_client, id.to_string()).await {
+        Ok(Some(_)) => {
             // Item found, proceed with delete
-            let delete_item_output = db_client
-                .delete_item()
-                .table_name(TABLE_NAME)
-                .key(
-                    "id",
-                    aws_sdk_dynamodb::types::AttributeValue::S(id.to_string()),
-                )
-                .send()
-                .await;
-
-            match delete_item_output {
-                Ok(_) => Ok(Response::builder().status(204).body("".into())?),
+            match crate::db::delete_item(db_client, id.to_string()).await {
+                Ok(_) => build_response::<()>(StatusCode::NO_CONTENT, None),
                 Err(e) => {
-                    eprintln!("Error deleting item from DynamoDB: {:?}", e);
-                    Ok(Response::builder()
-                        .status(500)
-                        .body("Internal Server Error".into())?)
+                    error!("Error deleting item from DynamoDB: {:?}", e);
+                    build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
                 }
             }
         }
+        Ok(None) => build_error_response(StatusCode::NOT_FOUND, "Not Found"),
         Err(e) => {
-            eprintln!(
+            error!(
                 "Error checking item existence for deletion in DynamoDB: {:?}",
                 e
             );
-            Ok(Response::builder()
-                .status(500)
-                .body("Internal Server Error".into())?)
+            build_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
         }
     }
 }

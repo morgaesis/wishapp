@@ -1,4 +1,7 @@
 extends: default
+warnings: true
 
 rules:
   line-length: disable
+  comments:
+    spaces: 1
