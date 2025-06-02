@@ -44,7 +44,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --verbose -- --nocapture
+          args: --verbose
 
       - name: Run clippy
         uses: actions-rs/cargo@v1
